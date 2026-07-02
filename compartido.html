@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bomboncitos - Compartido</title>
+  <link rel="icon" href="assets/logos/logo.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap');
+  </style>
+</head>
+<body>
+  <img class="logo" src="assets/logos/logo.png" alt="Bomboncitos">
+  <h1>compartido</h1>
+  <p id="quien-soy" style="text-align:center;"></p>
+
+  <form id="form-gasto">
+    <div class="form-control">
+      <label for="descripcion">descripción:</label>
+      <textarea id="descripcion"></textarea>
+    </div>
+
+    <div class="form-control">
+      <label for="monto">monto:</label>
+      <input type="number" id="monto" step="0.01" required>
+    </div>
+
+    <div class="form-control">
+      <label for="fecha">fecha:</label>
+      <input type="date" id="fecha" required>
+    </div>
+
+    <div class="form-control">
+      <label>categoría:</label>
+      <div class="category-selector" id="category-selector">
+        <img src="assets/categorias/compartido/super.png" alt="Super" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/restaurante.png" alt="Restaurante" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/insumos.png" alt="Insumos" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/entretenimiento.png" alt="Entretenimiento" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/dulzor.png" alt="Dulzor" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/citas.png" alt="Citas" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/muebles.png" alt="Muebles" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/gastos-fijos.png" alt="Fijos" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/servicios.png" alt="Servicios" onclick="selectCategory(this)">
+      </div>
+    </div>
+
+    <button type="submit">enviar</button>
+  </form>
+
+  <p id="confirmacion" style="display:none; text-align:center;">¡Gasto cargado!</p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-client.js"></script>
+  <script>
+    // Verificar que haya login
+    const persona = localStorage.getItem('bomboncitos_persona');
+    if (!persona) {
+      window.location.href = 'login.html';
+    } else {
+      document.getElementById('quien-soy').textContent = 'hola, ' + persona;
+    }
+
+    let categoriaSeleccionada = null;
+
+    function selectCategory(img) {
+      document.querySelectorAll('.category-selector img').forEach(i => i.classList.remove('selected'));
+      img.classList.add('selected');
+      categoriaSeleccionada = img.alt;
+    }
+
+    document.getElementById('form-gasto').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const monto = document.getElementById('monto').value;
+      const descripcion = document.getElementById('descripcion').value;
+      const fecha = document.getElementById('fecha').value;
+
+      const { error } = await supabaseClient.from('movimientos').insert({
+        tipo: 'gasto',
+        alcance: 'compartido',
+        persona: persona,
+        monto: parseFloat(monto),
+        descripcion: descripcion,
+        categoria: categoriaSeleccionada,
+        fecha: fecha
+      });
+
+      if (error) {
+        alert('Error al guardar: ' + error.message);
+        return;
+      }
+
+      document.getElementById('form-gasto').reset();
+      document.querySelectorAll('.category-selector img').forEach(i => i.classList.remove('selected'));
+      categoriaSeleccionada = null;
+
+      document.getElementById('confirmacion').style.display = 'block';
+      setTimeout(() => document.getElementById('confirmacion').style.display = 'none', 2000);
+    });
+  </script>
+</body>
+</html>
