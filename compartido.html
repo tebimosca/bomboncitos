@@ -4,45 +4,57 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bomboncitos - Compartido</title>
-  <link rel="icon" href="assets/logos/logo.png">
+  <link rel="icon" href="assets/logos/Logo.png">
   <link rel="stylesheet" href="css/styles.css">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap');
   </style>
 </head>
 <body>
-  <img class="logo" src="assets/logos/logo.png" alt="Bomboncitos">
-  <h1>compartido</h1>
-  <p id="quien-soy" style="text-align:center;"></p>
+  <div class="header">
+    <h1>bomboncitos</h1>
+    <img class="logo" src="assets/logos/Logo.png" alt="Bomboncitos">
+  </div>
+  <p id="quien-carga" style="text-align:center;"></p>
 
   <form id="form-gasto">
     <div class="form-control">
+      <label>¿quién hizo el gasto?</label>
+      <div class="name-selector" id="name-selector">
+        <button type="button" onclick="selectRealizador(this, 'Tebi')">tebi</button>
+        <button type="button" onclick="selectRealizador(this, 'Anita')">anita</button>
+      </div>
+    </div>
+
+    <div class="form-control">
       <label for="descripcion">descripción:</label>
-      <textarea id="descripcion"></textarea>
+      <input type="text" id="descripcion">
     </div>
 
-    <div class="form-control">
-      <label for="monto">monto:</label>
-      <input type="number" id="monto" step="0.01" required>
-    </div>
+    <div class="row">
+      <div class="form-control">
+        <label for="monto">monto:</label>
+        <input type="number" id="monto" step="0.01" required>
+      </div>
 
-    <div class="form-control">
-      <label for="fecha">fecha:</label>
-      <input type="date" id="fecha" required>
+      <div class="form-control">
+        <label for="fecha">fecha:</label>
+        <input type="date" id="fecha" required>
+      </div>
     </div>
 
     <div class="form-control">
       <label>categoría:</label>
       <div class="category-selector" id="category-selector">
-        <img src="assets/categorias/compartido/super.png" alt="Super" onclick="selectCategory(this)">
-        <img src="assets/categorias/compartido/restaurante.png" alt="Restaurante" onclick="selectCategory(this)">
-        <img src="assets/categorias/compartido/insumos.png" alt="Insumos" onclick="selectCategory(this)">
-        <img src="assets/categorias/compartido/entretenimiento.png" alt="Entretenimiento" onclick="selectCategory(this)">
-        <img src="assets/categorias/compartido/dulzor.png" alt="Dulzor" onclick="selectCategory(this)">
-        <img src="assets/categorias/compartido/citas.png" alt="Citas" onclick="selectCategory(this)">
-        <img src="assets/categorias/compartido/muebles.png" alt="Muebles" onclick="selectCategory(this)">
-        <img src="assets/categorias/compartido/gastos-fijos.png" alt="Fijos" onclick="selectCategory(this)">
-        <img src="assets/categorias/compartido/servicios.png" alt="Servicios" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Super.png" alt="Super" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Restaurante.png" alt="Restaurante" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Insumos.png" alt="Insumos" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Entretenimiento.png" alt="Entretenimiento" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Dulzor.png" alt="Dulzor" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Citas.png" alt="Citas" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Muebles.png" alt="Muebles" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Gastos-fijos.png" alt="Fijos" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Servicios.png" alt="Servicios" onclick="selectCategory(this)">
       </div>
     </div>
 
@@ -54,20 +66,26 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase-client.js"></script>
   <script>
-    // Verificar que haya login
-    const persona = localStorage.getItem('bomboncitos_persona');
-    if (!persona) {
+    const quienCarga = localStorage.getItem('bomboncitos_persona');
+    if (!quienCarga) {
       window.location.href = 'login.html';
     } else {
-      document.getElementById('quien-soy').textContent = 'hola, ' + persona;
+      document.getElementById('quien-carga').textContent = 'cargando como: ' + quienCarga;
     }
 
     let categoriaSeleccionada = null;
+    let realizador = quienCarga; // por defecto, quien carga es quien hizo el gasto
 
     function selectCategory(img) {
       document.querySelectorAll('.category-selector img').forEach(i => i.classList.remove('selected'));
       img.classList.add('selected');
       categoriaSeleccionada = img.alt;
+    }
+
+    function selectRealizador(btn, nombre) {
+      document.querySelectorAll('.name-selector button').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      realizador = nombre;
     }
 
     document.getElementById('form-gasto').addEventListener('submit', async function(e) {
@@ -80,7 +98,7 @@
       const { error } = await supabaseClient.from('movimientos').insert({
         tipo: 'gasto',
         alcance: 'compartido',
-        persona: persona,
+        persona: realizador,
         monto: parseFloat(monto),
         descripcion: descripcion,
         categoria: categoriaSeleccionada,
@@ -93,8 +111,9 @@
       }
 
       document.getElementById('form-gasto').reset();
-      document.querySelectorAll('.category-selector img').forEach(i => i.classList.remove('selected'));
+      document.querySelectorAll('.category-selector img, .name-selector button').forEach(i => i.classList.remove('selected'));
       categoriaSeleccionada = null;
+      realizador = quienCarga;
 
       document.getElementById('confirmacion').style.display = 'block';
       setTimeout(() => document.getElementById('confirmacion').style.display = 'none', 2000);
