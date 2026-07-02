@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bomboncitos</title>
+  <link rel="icon" href="assets/logos/logo.png">
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap');
+  </style>
+</head>
+<body>
+  <img class="logo" src="assets/logos/logo.png" alt="Bomboncitos">
+  <h1>bomboncitos</h1>
+
+  <div class="form-control">
+    <label for="password">contraseña:</label>
+    <input type="password" id="password" autofocus>
+  </div>
+
+  <button id="btn-login" type="button">entrar</button>
+  <p id="error-msg" style="color: #ff6b6b; display: none;">Contraseña incorrecta</p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-client.js"></script>
+  <script>
+    document.getElementById('btn-login').addEventListener('click', intentarLogin);
+    document.getElementById('password').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') intentarLogin();
+    });
+
+    async function intentarLogin() {
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('error-msg');
+
+      const personas = ['Tebi', 'Anita'];
+      for (const persona of personas) {
+        const { data, error } = await supabaseClient.rpc('login', {
+          p_persona: persona,
+          p_password: password
+        });
+
+        if (data === true) {
+          localStorage.setItem('bomboncitos_persona', persona);
+          window.location.href = 'compartido.html';
+          return;
+        }
+      }
+
+      errorMsg.style.display = 'block';
+    }
+  </script>
+</body>
+</html>
