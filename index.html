@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Bomboncitos</title>
+</head>
+<body>
+  <script>
+    const persona = localStorage.getItem('bomboncitos_persona');
+    if (persona) {
+      window.location.href = 'compartido.html';
+    } else {
+      window.location.href = 'login.html';
+    }
+  </script>
+</body>
+</html>
