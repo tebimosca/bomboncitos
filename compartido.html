@@ -108,7 +108,7 @@
   }
 
   async function cargarResumen() {
-    // --- Cálculo de saldos por moneda (sin Muebles) ---
+    // --- Cálculo de saldos por moneda (sin Muebles)  ---
     const { data, error } = await supabaseClient
       .from('movimientos')
       .select('*')
