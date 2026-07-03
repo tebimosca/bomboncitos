@@ -65,7 +65,13 @@
   </form>
 
   <p id="confirmacion" style="display:none; text-align:center;">¡Gasto cargado!</p>
+  
+<div id="saldos-container"></div>
 
+<div class="form-control">
+  <label>últimos registros</label>
+  <div id="ultimos-registros"></div>
+</div>
   <footer style="text-align:center; margin-top:40px; opacity:0.7; font-size:14px;">
   <p id="quien-carga"></p>
 </footer>
@@ -117,7 +123,8 @@ function toggleMoneda() {
         descripcion: descripcion,
         categoria: categoriaSeleccionada,
         fecha: fecha,
-        moneda: moneda
+        moneda: moneda,
+        cargado_por: quienCarga
       });
 
       if (error) {
@@ -131,6 +138,80 @@ function toggleMoneda() {
       moneda = 'ARS';
       document.getElementById('btn-moneda').textContent = 'AR$';
       realizador = quienCarga;
+
+      async function cargarResumen() {
+      // Traer todos los movimientos compartidos (sin Muebles) para el cálculo de saldos
+      const { data, error } = await supabaseClient
+        .from('movimientos')
+        .select('*')
+        .eq('alcance', 'compartido')
+        .neq('categoria', 'Muebles');
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      // --- Cálculo de saldos por moneda ---
+      const totales = {};
+      data.forEach(m => {
+        if (!totales[m.moneda]) totales[m.moneda] = { Tebi: 0, Anita: 0 };
+        totales[m.moneda][m.persona] += parseFloat(m.monto);
+      });
+
+      const contenedorSaldos = document.getElementById('saldos-container');
+      contenedorSaldos.innerHTML = '';
+
+      Object.keys(totales).forEach(moneda => {
+        const totalTebi = totales[moneda].Tebi;
+        const totalAnita = totales[moneda].Anita;
+        const totalGeneral = totalTebi + totalAnita;
+        const mitad = totalGeneral / 2;
+        const difTebi = totalTebi - mitad;
+
+        if (Math.abs(difTebi) < 0.01) return;
+
+        const deudor = difTebi < 0 ? 'Tebi' : 'Anita';
+        const acreedor = difTebi < 0 ? 'Anita' : 'Tebi';
+        const monto = Math.abs(difTebi).toFixed(2);
+        const simbolo = moneda === 'ARS' ? 'AR$' : 'U$D';
+
+        const fila = document.createElement('div');
+        fila.className = 'saldo-fila';
+        fila.innerHTML = `
+          <span class="saldo-nombre-deudor">${deudor}</span>
+          <span class="saldo-monto">${simbolo} ${monto}</span>
+          <span class="saldo-nombre-acreedor">${acreedor}</span>
+        `;
+        contenedorSaldos.appendChild(fila);
+      });
+
+      // --- Últimos 10 registros (por momento de carga, no por fecha del gasto) ---
+      const { data: ultimos, error: errorUltimos } = await supabaseClient
+        .from('movimientos')
+        .select('*')
+        .eq('alcance', 'compartido')
+        .order('creado_en', { ascending: false })
+        .limit(10);
+
+      if (errorUltimos) {
+        console.error(errorUltimos);
+        return;
+      }
+
+      const contenedorRegistros = document.getElementById('ultimos-registros');
+      contenedorRegistros.innerHTML = '';
+
+      ultimos.forEach(m => {
+        const simbolo = m.moneda === 'ARS' ? 'AR$' : 'U$D';
+        const fila = document.createElement('div');
+        fila.className = 'registro-fila';
+        fila.textContent = `${m.fecha} — ${m.persona} — ${m.categoria} — ${simbolo} ${m.monto} — ${m.descripcion || ''}`;
+        contenedorRegistros.appendChild(fila);
+      });
+    }
+
+    cargarResumen();
 
       document.getElementById('confirmacion').style.display = 'block';
       setTimeout(() => document.getElementById('confirmacion').style.display = 'none', 2000);
