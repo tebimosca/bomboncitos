@@ -119,6 +119,42 @@ input[type="number"], input[type="text"] {
   z-index: 1;
 }
 
+.saldo-fila {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--field-bg);
+  border-radius: 30px;
+  padding: 14px 20px;
+  margin-bottom: 12px;
+  border: 4px solid var(--field-border);
+}
+
+.saldo-nombre-deudor {
+  color: #AA0909;
+  font-weight: 600;
+}
+
+.saldo-nombre-acreedor {
+  color: #2C6671;
+  font-weight: 600;
+}
+
+.saldo-monto {
+  font-weight: 600;
+  color: var(--bg);
+}
+
+.registro-fila {
+  background-color: var(--field-bg);
+  border: 4px solid var(--field-border);
+  border-radius: 30px;
+  padding: 12px 20px;
+  margin-bottom: 10px;
+  color: var(--bg);
+  font-size: 15px;
+}
+
 .category-selector {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
