@@ -94,6 +94,31 @@ input[type="number"], input[type="text"] {
   border-color: var(--accent);
 }
 
+.monto-wrapper {
+  position: relative;
+}
+
+.monto-wrapper input {
+  padding-left: 85px;
+}
+
+.btn-moneda {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto;
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 2px solid var(--field-border);
+  background-color: var(--bg);
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 1;
+}
+
 .category-selector {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
