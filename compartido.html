@@ -34,7 +34,10 @@
     <div class="row">
       <div class="form-control">
         <label for="monto">monto:</label>
-        <input type="number" id="monto" step="0.01" required>
+        <div class="monto-wrapper">
+          <button type="button" class="btn-moneda" id="btn-moneda" onclick="toggleMoneda()">AR$</button>
+          <input type="number" id="monto" step="0.01" required>
+        </div>
       </div>
 
       <div class="form-control">
@@ -80,6 +83,13 @@
     let categoriaSeleccionada = null;
     let realizador = quienCarga; // por defecto, quien carga es quien hizo el gasto
 
+    let moneda = 'ARS';
+
+function toggleMoneda() {
+  moneda = moneda === 'ARS' ? 'USD' : 'ARS';
+  document.getElementById('btn-moneda').textContent = moneda === 'ARS' ? 'AR$' : 'U$D';
+}
+
     function selectCategory(img) {
       document.querySelectorAll('.category-selector img').forEach(i => i.classList.remove('selected'));
       img.classList.add('selected');
@@ -106,7 +116,8 @@
         monto: parseFloat(monto),
         descripcion: descripcion,
         categoria: categoriaSeleccionada,
-        fecha: fecha
+        fecha: fecha,
+        moneda: moneda
       });
 
       if (error) {
@@ -117,6 +128,8 @@
       document.getElementById('form-gasto').reset();
       document.querySelectorAll('.category-selector img, .name-selector button').forEach(i => i.classList.remove('selected'));
       categoriaSeleccionada = null;
+      moneda = 'ARS';
+      document.getElementById('btn-moneda').textContent = 'AR$';
       realizador = quienCarga;
 
       document.getElementById('confirmacion').style.display = 'block';
