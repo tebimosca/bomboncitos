@@ -119,40 +119,73 @@ input[type="number"], input[type="text"] {
   z-index: 1;
 }
 
-.saldo-fila {
+.franja {
+  display: block;
+  background-color: var(--accent);
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  margin: 24px 0;
+}
+
+.saldos-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.saldo-persona {
+  flex: 1;
   background-color: var(--field-bg);
   border-radius: 30px;
-  padding: 14px 20px;
-  margin-bottom: 12px;
   border: 4px solid var(--field-border);
+  text-align: center;
+  padding: 14px 8px;
+  font-weight: 600;
+  font-size: 18px;
 }
 
-.saldo-nombre-deudor {
+.saldo-persona.deudor {
   color: #AA0909;
-  font-weight: 600;
+  border-color: #F70A07;
 }
 
-.saldo-nombre-acreedor {
+.saldo-persona.acreedor {
   color: #2C6671;
-  font-weight: 600;
+  border-color: #00A1B2;
 }
 
 .saldo-monto {
+  flex: 1.2;
+  background-color: var(--field-bg);
+  border-radius: 30px;
+  border: 4px solid var(--field-border);
+  text-align: center;
+  padding: 14px 8px;
   font-weight: 600;
+  font-size: 18px;
   color: var(--bg);
 }
 
-.registro-fila {
+.registros-caja {
   background-color: var(--field-bg);
-  border: 4px solid var(--field-border);
   border-radius: 30px;
-  padding: 12px 20px;
-  margin-bottom: 10px;
+  border: 4px solid var(--field-border);
+  padding: 16px 20px;
+}
+
+.registro-linea {
+  padding: 8px 0;
+  border-bottom: 2px solid var(--field-border);
   color: var(--bg);
   font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.registro-linea:last-child {
+  border-bottom: none;
 }
 
 .category-selector {
