@@ -273,7 +273,7 @@ button[type="submit"]:active {
   color: var(--field-bg);
 }
 
-.seccion-resultados label {
+.seccion-resultados label, label {
   font-weight: 500;
 }
 
