@@ -140,6 +140,11 @@ input[type="number"], input[type="text"] {
   margin-bottom: 0;
 }
 
+.franja-fin {
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
 .saldos-row {
   display: flex;
   gap: 10px;
