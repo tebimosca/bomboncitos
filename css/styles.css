@@ -125,7 +125,7 @@ input[type="number"], input[type="text"] {
   background: none;
   color: var(--accent);
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 300;
   cursor: pointer;
   z-index: 1;
 }
@@ -158,7 +158,7 @@ input[type="number"], input[type="text"] {
   border: 4px solid var(--field-border);
   text-align: center;
   padding: 14px 8px;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 18px;
 }
 
@@ -179,7 +179,7 @@ input[type="number"], input[type="text"] {
   border: 4px solid var(--bg);
   text-align: center;
   padding: 14px 8px;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 18px;
   color: var(--bg);
 }
@@ -274,13 +274,13 @@ button[type="submit"]:active {
 }
 
 .seccion-resultados label {
-  font-weight: 600;
+  font-weight: 500;
 }
 
-input, textarea, .saldo-persona, .saldo-monto, .registro-linea, #quien-carga, label {
+input, textarea, .saldo-persona, .saldo-monto, .registro-linea, #quien-carga{
   font-weight: 300;
 }
 
-h1, button[type="submit"], #btn-login, .btn-moneda {
-  font-weight: 300;
+h1, button[type="submit"], #btn-login {
+  font-weight: 500;
 }
