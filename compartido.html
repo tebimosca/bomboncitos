@@ -106,11 +106,11 @@
 
   let categoriaSeleccionada = null;
   let realizador = quienCarga;
-  let moneda = 'ars';
+  let moneda = 'ARS';
 
   function toggleMoneda() {
-    moneda = moneda === 'ars' ? 'usd' : 'ars';
-    document.getElementById('btn-moneda').textContent = moneda === 'ars' ? 'ar$' : 'u$d';
+    moneda = moneda === 'ARS' ? 'USD' : 'ARS';
+    document.getElementById('btn-moneda').textContent = moneda === 'ARS' ? 'ar$' : 'u$d';
   }
 
   function selectCategory(img) {
@@ -172,7 +172,7 @@ async function cargarResumen() {
     if (Math.abs(difTebi) < 0.01) return;
 
     const tebiEsDeudor = difTebi < 0;
-    const simbolo = mon === 'ars' ? 'ar$' : 'u$d';
+    const simbolo = mon === 'ARS' ? 'ar$' : 'u$d';
 
     const fila = document.createElement('div');
     fila.className = 'saldos-row';
