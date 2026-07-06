@@ -45,7 +45,7 @@
       <div class="form-control">
         <label for="monto">monto:</label>
         <div class="monto-wrapper">
-          <button type="button" class="btn-moneda" id="btn-moneda" onclick="toggleMoneda()">AR$</button>
+          <button type="button" class="btn-moneda" id="btn-moneda" onclick="toggleMoneda()">ar$</button>
           <input type="number" id="monto" step="0.01" required>
         </div>
       </div>
@@ -106,11 +106,11 @@
 
   let categoriaSeleccionada = null;
   let realizador = quienCarga;
-  let moneda = 'ARS';
+  let moneda = 'ars';
 
   function toggleMoneda() {
-    moneda = moneda === 'ARS' ? 'USD' : 'ARS';
-    document.getElementById('btn-moneda').textContent = moneda === 'ARS' ? 'AR$' : 'U$D';
+    moneda = moneda === 'ars' ? 'usd' : 'ars';
+    document.getElementById('btn-moneda').textContent = moneda === 'ars' ? 'ar$' : 'u$d';
   }
 
   function selectCategory(img) {
@@ -172,7 +172,7 @@ async function cargarResumen() {
     if (Math.abs(difTebi) < 0.01) return;
 
     const tebiEsDeudor = difTebi < 0;
-    const simbolo = mon === 'ARS' ? 'AR$' : 'U$D';
+    const simbolo = mon === 'ars' ? 'ar$' : 'u$d';
 
     const fila = document.createElement('div');
     fila.className = 'saldos-row';
@@ -235,7 +235,7 @@ async function cargarResumen() {
     document.querySelectorAll('.category-selector img, .name-selector button').forEach(i => i.classList.remove('selected'));
     categoriaSeleccionada = null;
     moneda = 'ARS';
-    document.getElementById('btn-moneda').textContent = 'AR$';
+    document.getElementById('btn-moneda').textContent = 'ar$';
     realizador = quienCarga;
 
     document.getElementById('confirmacion').style.display = 'block';
