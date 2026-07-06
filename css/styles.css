@@ -22,7 +22,7 @@ body {
   padding: 20px;
   max-width: 500px;
   margin-inline: auto;
-  overflow-x: hidden;
+  /*overflow-x: hidden; BORRO ESTA LINEA PARA QUE LA FRANJA Y EL COLOR DE FONDO LLEGUE HASTA LOS BORDES*/
 }
 
 .logo-login {
