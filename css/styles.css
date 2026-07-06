@@ -273,6 +273,24 @@ button[type="submit"]:active {
   color: var(--field-bg);
 }
 
+/*seccion para prueba*/
+.btn-transferencia {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 20px;
+  border: 3px solid var(--field-border);
+  background-color: var(--field-bg);
+  color: var(--bg);
+  font-weight: 300;
+  cursor: pointer;
+  width: 100%;
+}
+
+.btn-transferencia.selected {
+  border-color: var(--accent);
+}
+/*fin seccion para prueba*/
+
 #btn-login {
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s;
