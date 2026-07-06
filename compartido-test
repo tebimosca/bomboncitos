@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gastos Compartidos</title>
+
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/logos/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/logos/favicon-16x16.png">
+  <link rel="shortcut icon" href="assets/logos/favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/logos/apple-touch-icon.png">
+  <link rel="mask-icon" href="assets/logos/safari-pinned-tab.svg" color="#c0fe41">
+  <link rel="manifest" href="assets/logos/site.webmanifest">
+  <meta name="msapplication-TileColor" content="#48576F">
+  <meta name="msapplication-TileImage" content="assets/logos/mstile-150x150.png">
+  <meta name="theme-color" content="#48576F">
+
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap');
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>juntos</h1>
+    <img class="logo" src="assets/logos/Logo.png" alt="Bomboncitos">
+  </div>
+
+
+  <form id="form-gasto">
+    <div class="form-control">
+      <label>quién hizo el gasto?</label>
+      <div class="name-selector" id="name-selector">
+        <button type="button" onclick="selectRealizador(this, 'Tebi')">tebi</button>
+        <button type="button" onclick="selectRealizador(this, 'Anita')">anita</button>
+      </div>
+    </div>
+
+    <div class="form-control">
+      <label for="descripcion">descripción:</label>
+      <input type="text" id="descripcion">
+    </div>
+
+    <div class="row">
+      <div class="form-control">
+        <label for="monto">monto:</label>
+        <div class="monto-wrapper">
+          <button type="button" class="btn-moneda" id="btn-moneda" onclick="toggleMoneda()">ar$</button>
+          <input type="number" id="monto" step="0.01" required>
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label for="fecha">fecha:</label>
+        <input type="date" id="fecha" required>
+      </div>
+    </div>
+
+    <div class="form-control">
+      <label>categoría:</label>
+      <div class="category-selector" id="category-selector">
+        <img src="assets/categorias/compartido/Super.png" alt="Super" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Restaurante.png" alt="Restaurante" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Insumos.png" alt="Insumos" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Entretenimiento.png" alt="Entretenimiento" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Dulzor.png" alt="Dulzor" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Citas.png" alt="Citas" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Muebles.png" alt="Muebles" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Fijos.jpeg" alt="Fijos" onclick="selectCategory(this)">
+        <img src="assets/categorias/compartido/Servicios.png" alt="Servicios" onclick="selectCategory(this)">
+      </div>
+      <button type="button" class="btn-transferencia" id="btn-transferencia" onclick="selectTransferencia()">transferencia</button>
+    </div>
+
+    <button type="submit">enviar</button>
+  </form>
+
+  <p id="confirmacion" style="display:none; text-align:center;">¡Gasto cargado!</p>
+
+<a class="franja"></a>
+
+<div class="seccion-resultados">
+  <div class="seccion-resultados-inner">
+    <label>saldos</label>
+    <div id="saldos-container"></div>
+
+    <label>últimos registros</label>
+    <div id="ultimos-registros" class="registros-caja"></div>
+  </div>
+</div>
+
+<a class="franja-fin"></a>
+  
+  <footer style="text-align:center; margin-top:40px; opacity:0.7; font-size:14px;">
+  <p id="quien-carga"></p>
+</footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+  const quienCarga = localStorage.getItem('bomboncitos_persona');
+if (!quienCarga) {
+  window.location.href = 'login.html';
+} else {
+  document.getElementById('quien-carga').textContent = 'cargando como: ' + quienCarga;
+}
+
+let categoriaSeleccionada = null;
+let realizador = quienCarga;
+let moneda = 'ARS';
+let esTransferencia = false;
+
+function toggleMoneda() {
+  moneda = moneda === 'ARS' ? 'USD' : 'ARS';
+  document.getElementById('btn-moneda').textContent = moneda === 'ARS' ? 'AR$' : 'U$D';
+}
+
+function selectCategory(img) {
+  document.querySelectorAll('.category-selector img').forEach(i => i.classList.remove('selected'));
+  document.getElementById('btn-transferencia').classList.remove('selected');
+  img.classList.add('selected');
+  categoriaSeleccionada = img.alt;
+  esTransferencia = false;
+  document.getElementById('category-selector').style.display = 'grid';
+}
+
+function selectTransferencia() {
+  document.querySelectorAll('.category-selector img').forEach(i => i.classList.remove('selected'));
+  document.getElementById('btn-transferencia').classList.add('selected');
+  categoriaSeleccionada = 'Transferencia';
+  esTransferencia = true;
+}
+
+function selectRealizador(btn, nombre) {
+  document.querySelectorAll('.name-selector button').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  realizador = nombre;
+}
+
+function formatearMonto(monto) {
+  return '$' + new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(monto);
+}
+
+function formatearFecha(fechaStr) {
+  const [anio, mes, dia] = fechaStr.split('-');
+  return `${dia}/${mes}`;
+}
+
+function truncar(texto, largo) {
+  if (!texto) return '';
+  return texto.length > largo ? texto.slice(0, largo) + '...' : texto;
+}
+
+async function cargarResumen() {
+  const { data, error } = await supabaseClient
+    .from('movimientos')
+    .select('*')
+    .eq('alcance', 'compartido')
+    .neq('categoria', 'Muebles');
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  const totales = {};
+  data.forEach(m => {
+    if (!totales[m.moneda]) totales[m.moneda] = { Tebi: 0, Anita: 0 };
+
+    if (m.tipo === 'gasto') {
+      totales[m.moneda][m.persona] += parseFloat(m.monto);
+    } else if (m.tipo === 'transferencia') {
+      // Quien transfiere "paga" ese monto (equivale a haber puesto esa plata de más).
+      totales[m.moneda][m.persona] += parseFloat(m.monto);
+    }
+  });
+
+  const contenedorSaldos = document.getElementById('saldos-container');
+  contenedorSaldos.innerHTML = '';
+
+  Object.keys(totales).forEach(mon => {
+    const totalTebi = totales[mon].Tebi;
+    const totalAnita = totales[mon].Anita;
+
+    // Para el cálculo del "debido" (mitad de gastos), solo cuentan los gastos, no las transferencias.
+    const soloGastos = data.filter(m => m.moneda === mon && m.tipo === 'gasto');
+    const totalGastosTebi = soloGastos.filter(m => m.persona === 'Tebi').reduce((a, m) => a + parseFloat(m.monto), 0);
+    const totalGastosAnita = soloGastos.filter(m => m.persona === 'Anita').reduce((a, m) => a + parseFloat(m.monto), 0);
+    const mitad = (totalGastosTebi + totalGastosAnita) / 2;
+
+    const transferenciasTebi = data.filter(m => m.moneda === mon && m.tipo === 'transferencia' && m.persona === 'Tebi').reduce((a, m) => a + parseFloat(m.monto), 0);
+    const transferenciasAnita = data.filter(m => m.moneda === mon && m.tipo === 'transferencia' && m.persona === 'Anita').reduce((a, m) => a + parseFloat(m.monto), 0);
+
+    // difTebi positivo = a Tebi le deben (puso de más en gastos, o transfirió)
+    const difTebi = (totalGastosTebi - mitad) + transferenciasTebi - transferenciasAnita;
+
+    if (Math.abs(difTebi) < 0.01) return;
+
+    const tebiEsDeudor = difTebi < 0;
+    const simbolo = mon === 'ARS' ? 'AR$' : 'U$D';
+
+    const fila = document.createElement('div');
+    fila.className = 'saldos-row';
+    fila.innerHTML = `
+      <div class="saldo-persona ${tebiEsDeudor ? 'deudor' : 'acreedor'}">tebi</div>
+      <div class="saldo-monto">${simbolo} ${formatearMonto(Math.abs(difTebi)).replace('$','')}</div>
+      <div class="saldo-persona ${tebiEsDeudor ? 'acreedor' : 'deudor'}">anita</div>
+    `;
+    contenedorSaldos.appendChild(fila);
+  });
+
+  const { data: ultimos, error: errorUltimos } = await supabaseClient
+    .from('movimientos')
+    .select('*')
+    .eq('alcance', 'compartido')
+    .order('creado_en', { ascending: false })
+    .limit(NUM_ULTIMOS_REGISTROS);
+
+  if (errorUltimos) {
+    console.error(errorUltimos);
+    return;
+  }
+
+  const contenedorRegistros = document.getElementById('ultimos-registros');
+  contenedorRegistros.innerHTML = '';
+
+  ultimos.forEach(m => {
+    const linea = document.createElement('div');
+    linea.className = 'registro-linea';
+    if (m.tipo === 'transferencia') {
+      linea.textContent = `${formatearFecha(m.fecha)} ${formatearMonto(m.monto)} ${m.persona.toLowerCase()} → transferencia ${truncar(m.descripcion, 20)}`;
+    } else {
+      linea.textContent = `${formatearFecha(m.fecha)} ${formatearMonto(m.monto)} ${m.persona.toLowerCase()} ${truncar(m.descripcion, 25)}`;
+    }
+    contenedorRegistros.appendChild(linea);
+  });
+}
+
+const NUM_ULTIMOS_REGISTROS = 10;
+
+document.getElementById('form-gasto').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const monto = document.getElementById('monto').value;
+  const descripcion = document.getElementById('descripcion').value;
+  const fecha = document.getElementById('fecha').value;
+
+  const { error } = await supabaseClient.from('movimientos').insert({
+    tipo: esTransferencia ? 'transferencia' : 'gasto',
+    alcance: 'compartido',
+    persona: realizador,
+    monto: parseFloat(monto),
+    descripcion: descripcion,
+    categoria: categoriaSeleccionada,
+    fecha: fecha,
+    moneda: moneda,
+    cargado_por: quienCarga
+  });
+
+  if (error) {
+    alert('Error al guardar: ' + error.message);
+    return;
+  }
+
+  document.getElementById('form-gasto').reset();
+  document.querySelectorAll('.category-selector img, .name-selector button').forEach(i => i.classList.remove('selected'));
+  document.getElementById('btn-transferencia').classList.remove('selected');
+  categoriaSeleccionada = null;
+  esTransferencia = false;
+  moneda = 'ARS';
+  document.getElementById('btn-moneda').textContent = 'AR$';
+  realizador = quienCarga;
+
+  document.getElementById('confirmacion').style.display = 'block';
+  setTimeout(() => document.getElementById('confirmacion').style.display = 'none', 2000);
+
+  cargarResumen();
+});
+
+cargarResumen();
+</script>
+  
+</body>
+</html>
