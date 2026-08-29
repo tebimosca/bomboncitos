@@ -27,6 +27,29 @@
       gap: 8px;
     }
 
+    /* Placeholder para categorías sin logo cargado todavía */
+    .category-placeholder {
+      aspect-ratio: 1 / 1;
+      border-radius: 16px;
+      border: 3px solid var(--field-border);
+      cursor: pointer;
+      background-color: var(--field-bg);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px;
+      line-height: 1.15;
+      word-break: break-word;
+    }
+
+    .category-placeholder.selected {
+      border-color: var(--accent);
+    }
+
     /* Selector de tipo de gasto: 3 botones arriba + 1 ancho completo abajo */
     .tipo-gasto-selector {
       display: grid;
@@ -267,7 +290,7 @@
     data.forEach(inst => {
       const opt = document.createElement('option');
       opt.value = inst.id;
-      opt.textContent = `${inst.nombre} (${inst.cuentas.designacion})`;
+      opt.textContent = inst.nombre;
       select.appendChild(opt);
     });
 
@@ -296,7 +319,7 @@
     data.forEach(inst => {
       const opt = document.createElement('option');
       opt.value = inst.id;
-      opt.textContent = `${inst.nombre} (${inst.cuentas.designacion})`;
+      opt.textContent = inst.nombre;
       select.appendChild(opt);
     });
   }
@@ -336,19 +359,28 @@
     }
 
     visibles.forEach(cat => {
-      if (!cat.imagen) return; // todavía sin logo cargado, se salta
-      const img = document.createElement('img');
-      img.src = cat.imagen;
-      img.alt = cat.nombre;
-      img.dataset.id = cat.id;
-      img.onclick = () => selectCategoria(img, cat.id);
-      cont.appendChild(img);
+      if (cat.imagen) {
+        const img = document.createElement('img');
+        img.src = cat.imagen;
+        img.alt = cat.nombre;
+        img.dataset.id = cat.id;
+        img.onclick = () => selectCategoria(img, cat.id);
+        cont.appendChild(img);
+      } else {
+        // Sin logo cargado todavía: cuadrado con el nombre como placeholder
+        const div = document.createElement('div');
+        div.className = 'category-placeholder';
+        div.textContent = cat.nombre;
+        div.dataset.id = cat.id;
+        div.onclick = () => selectCategoria(div, cat.id);
+        cont.appendChild(div);
+      }
     });
   }
 
-  function selectCategoria(img, id) {
-    document.querySelectorAll('#category-selector img').forEach(i => i.classList.remove('selected'));
-    img.classList.add('selected');
+  function selectCategoria(el, id) {
+    document.querySelectorAll('#category-selector img, #category-selector .category-placeholder').forEach(i => i.classList.remove('selected'));
+    el.classList.add('selected');
     categoriaSeleccionadaId = id;
   }
 
