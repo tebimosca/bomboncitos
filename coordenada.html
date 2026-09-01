@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coordenada</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
+<style>
+  :root{
+    --slate: #10161c;
+    --slate-2: #171f27;
+    --line: rgba(233,233,222,0.10);
+    --paper: #e9e9de;
+    --paper-dim: rgba(233,233,222,0.55);
+    --signal: #ff6a3d;
+    --grid: #3a5a55;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background: var(--slate);
+    color: var(--paper);
+    font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    min-height:100vh;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 42px 42px;
+  }
+  .display{ font-family: Georgia, 'Times New Roman', serif; }
+
+  .center-screen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding: 24px;
+  }
+  .card{
+    width:100%; max-width: 420px;
+    background: var(--slate-2); border: 1px solid var(--line);
+    padding: 36px 32px;
+  }
+  .card .eyebrow{ font-size: 12px; color: var(--grid); }
+  .card h1{
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 400; font-size: 30px; margin: 6px 0 18px; color: var(--paper);
+  }
+  .field{
+    width:100%; background: var(--slate); border: 1px solid rgba(233,233,222,0.2);
+    color: var(--paper); padding: 13px 14px; font-size: 15px; font-family: inherit; margin-bottom: 12px;
+  }
+  .field:focus{ outline:none; border-color: var(--signal); }
+  .btn{
+    display:inline-block; width:100%; background: var(--signal); color: #17110c;
+    border:none; padding: 13px 20px; font-size: 14px; font-weight: 700; cursor:pointer; font-family: inherit;
+  }
+  .btn:hover{ background:#ff8259; }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .err{ color:#ff8f78; font-size: 13px; margin-top: 10px; line-height:1.5; }
+  .help{ color: var(--paper-dim); font-size: 13px; line-height:1.6; margin-top: 4px;}
+
+  .topbar{
+    display:flex; align-items:center; justify-content: space-between;
+    padding: 16px 22px; border-bottom: 1px solid var(--line);
+  }
+  .brand{ font-family: Georgia, 'Times New Roman', serif; font-size: 19px; }
+  .brand b{ color: var(--signal); font-weight:400; }
+  .userbit{ font-size: 13px; color: var(--paper-dim); display:flex; align-items:center; gap:14px; }
+  .userbit b{ color: var(--paper); font-weight:600; }
+  .textbtn{
+    background:none;border:none;color:var(--paper-dim);
+    font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;
+  }
+  .textbtn:hover{ color:var(--paper); }
+
+  .wrap{ max-width: 1180px; margin: 0 auto; padding: 22px; }
+  .progress-line{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size: 13px; color: var(--paper-dim); margin-bottom: 14px;
+  }
+  .progress-line .num{ color: var(--paper); font-weight:600; }
+
+  .grid{ display:grid; grid-template-columns: 1.05fr 1fr; gap: 16px; }
+  @media (max-width: 860px){ .grid{ grid-template-columns: 1fr; } }
+
+  .pane{ background: var(--slate-2); border: 1px solid var(--line); }
+  .pane-head{
+    padding: 10px 14px; font-size: 11px; color: var(--paper-dim);
+    border-bottom: 1px solid var(--line); display:flex; justify-content:space-between;
+  }
+  .photo-pane img{ width:100%; display:block; max-height: 60vh; object-fit: contain; background:#000; }
+  #map{ height: 60vh; width:100%; background:#0c0f0c; }
+
+  .action-row{ display:flex; justify-content:space-between; align-items:center; margin-top: 16px; gap: 14px; flex-wrap: wrap; }
+  .readout{ font-size: 13px; color: var(--paper-dim); }
+  .readout b{ color: var(--signal); font-weight:600; }
+
+  .result{
+    max-width: 480px; margin: 22px auto 0;
+    background: var(--slate-2); border: 1px solid var(--line);
+    padding: 30px 34px; text-align:center;
+  }
+  .result .distance{ font-family: Georgia, serif; font-size: 17px; color: var(--paper-dim); }
+  .result .distance b{ color: var(--paper); font-weight:600; }
+  .result .score{ font-family: Georgia, serif; font-size: 76px; line-height: 1; margin: 12px 0 2px; color: var(--signal); }
+  .result .score sup{ font-size: 24px; color: var(--paper-dim); }
+  .result .verdict{ font-size: 14px; color: var(--paper-dim); margin-top:2px; }
+  .result hr{ border:none; border-top:1px solid var(--line); margin: 22px 0; }
+  .result .legend{ font-size: 12px; color: var(--paper-dim); }
+  .dot{ display:inline-block; width:9px;height:9px;border-radius:50%; margin-right:6px; vertical-align:middle; }
+
+  .settings-body{ font-size: 13px; color: var(--paper-dim); line-height:1.7; }
+  .settings-body code{ background: var(--slate); padding: 2px 6px; color: var(--paper); }
+</style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script>
+(function(){
+  const DEFAULT_CONFIG = { owner: "", repo: "", branch: "main", manifestPath: "manifest.json" };
+  const LS_USER = "coordenada_user";
+  const LS_CONFIG = "coordenada_config";
+  const LS_PROGRESS_PREFIX = "coordenada_progress_";
+
+  const root = document.getElementById('root');
+
+  function getConfig(){
+    try{
+      const raw = localStorage.getItem(LS_CONFIG);
+      if(raw) return Object.assign({}, DEFAULT_CONFIG, JSON.parse(raw));
+    }catch(e){}
+    return Object.assign({}, DEFAULT_CONFIG);
+  }
+  function setConfig(cfg){ localStorage.setItem(LS_CONFIG, JSON.stringify(cfg)); }
+  function getUser(){ return localStorage.getItem(LS_USER); }
+  function setUser(name){ localStorage.setItem(LS_USER, name); }
+  function getProgress(user){
+    try{
+      const raw = localStorage.getItem(LS_PROGRESS_PREFIX + user);
+      if(raw) return JSON.parse(raw);
+    }catch(e){}
+    return { index: 0, history: [] };
+  }
+  function setProgress(user, progress){ localStorage.setItem(LS_PROGRESS_PREFIX + user, JSON.stringify(progress)); }
+  function rawUrl(cfg, path){ return `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${path}`; }
+
+  function render(){
+    const user = getUser();
+    const cfg = getConfig();
+    if(!cfg.owner || !cfg.repo){ renderSettings(); }
+    else if(!user){ renderLogin(); }
+    else { renderGame(user, cfg); }
+  }
+
+  function renderSettings(){
+    const cfg = getConfig();
+    root.innerHTML = `
+      <div class="center-screen">
+        <div class="card">
+          <div class="eyebrow">configuración</div>
+          <h1 class="display">Conectar banco de fotos</h1>
+          <div class="settings-body" style="margin-bottom:16px;">
+            La web lee las fotos y el orden desde un repositorio público de GitHub.
+            Necesita un archivo <code>manifest.json</code> en la raíz, con la lista de rutas de imagen en orden, por ejemplo:
+            <br><code>["fotos/001.jpg","fotos/002.jpg"]</code>
+          </div>
+          <input class="field" id="cfgOwner" placeholder="usuario u organización de GitHub" value="${cfg.owner || ''}">
+          <input class="field" id="cfgRepo" placeholder="nombre del repositorio" value="${cfg.repo || ''}">
+          <input class="field" id="cfgBranch" placeholder="rama (por defecto: main)" value="${cfg.branch || 'main'}">
+          <input class="field" id="cfgManifest" placeholder="ruta del manifest (por defecto: manifest.json)" value="${cfg.manifestPath || 'manifest.json'}">
+          <button class="btn" id="saveCfg">Guardar y continuar</button>
+          <div class="err" id="cfgErr"></div>
+        </div>
+      </div>
+    `;
+    document.getElementById('saveCfg').addEventListener('click', async () => {
+      const owner = document.getElementById('cfgOwner').value.trim();
+      const repo = document.getElementById('cfgRepo').value.trim();
+      const branch = document.getElementById('cfgBranch').value.trim() || 'main';
+      const manifestPath = document.getElementById('cfgManifest').value.trim() || 'manifest.json';
+      const errEl = document.getElementById('cfgErr');
+      errEl.textContent = '';
+      if(!owner || !repo){ errEl.textContent = 'Completá usuario/organización y repositorio.'; return; }
+      const testCfg = { owner, repo, branch, manifestPath };
+      try{
+        const res = await fetch(rawUrl(testCfg, manifestPath));
+        if(!res.ok) throw new Error('no encontrado');
+        const list = await res.json();
+        if(!Array.isArray(list) || list.length === 0) throw new Error('vacío');
+      }catch(e){
+        errEl.textContent = 'No pude leer el manifest en ese repositorio. Revisá que sea público y que el archivo exista en esa ruta y rama.';
+        return;
+      }
+      setConfig(testCfg);
+      render();
+    });
+  }
+
+  function renderLogin(){
+    root.innerHTML = `
+      <div class="center-screen">
+        <div class="card">
+          <div class="eyebrow">bienvenido</div>
+          <h1 class="display">¿Cómo te llamás?</h1>
+          <input class="field" id="nameInput" placeholder="tu nombre" autocomplete="off">
+          <button class="btn" id="startBtn">Entrar</button>
+          <div class="err" id="loginErr"></div>
+        </div>
+      </div>
+    `;
+    const submit = () => {
+      const val = document.getElementById('nameInput').value.trim();
+      const errEl = document.getElementById('loginErr');
+      if(!val){ errEl.textContent = 'Escribí un nombre para continuar.'; return; }
+      setUser(val);
+      render();
+    };
+    document.getElementById('startBtn').addEventListener('click', submit);
+    document.getElementById('nameInput').addEventListener('keydown', e => { if(e.key === 'Enter') submit(); });
+    document.getElementById('nameInput').focus();
+  }
+
+  let manifestCache = null;
+  async function loadManifest(cfg){
+    if(manifestCache) return manifestCache;
+    const res = await fetch(rawUrl(cfg, cfg.manifestPath));
+    manifestCache = await res.json();
+    return manifestCache;
+  }
+
+  function toDecimal(gpsData, ref){
+    if(!gpsData) return null;
+    let val = gpsData[0] + gpsData[1]/60 + gpsData[2]/3600;
+    if(ref === 'S' || ref === 'W') val = -val;
+    return val;
+  }
+
+  function extractGPS(imgUrl){
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = function(){
+        EXIF.getData(img, function(){
+          const lat = EXIF.getTag(this, 'GPSLatitude');
+          const latRef = EXIF.getTag(this, 'GPSLatitudeRef');
+          const lng = EXIF.getTag(this, 'GPSLongitude');
+          const lngRef = EXIF.getTag(this, 'GPSLongitudeRef');
+          if(!lat || !lng){ reject(new Error('sin GPS')); return; }
+          resolve({ lat: toDecimal(lat, latRef), lng: toDecimal(lng, lngRef) });
+        });
+      };
+      img.onerror = () => reject(new Error('no se pudo cargar la imagen'));
+      img.src = imgUrl;
+    });
+  }
+
+  function haversineMeters(lat1, lon1, lat2, lon2){
+    const R = 6371000;
+    const dLat = (lat2-lat1) * Math.PI/180;
+    const dLon = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) *
+              Math.sin(dLon/2)**2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  }
+
+  function scoreFromMeters(m){
+    const D0 = 10;
+    const DMAX = 100000;
+    if(m <= D0) return 100;
+    if(m >= DMAX) return 0;
+    const s = 100 * Math.log(DMAX / m) / Math.log(DMAX / D0);
+    return Math.max(0, Math.min(100, Math.round(s)));
+  }
+
+  function verdictFor(score){
+    if(score >= 95) return 'Prácticamente exacto.';
+    if(score >= 75) return 'Muy cerca del lugar real.';
+    if(score >= 50) return 'Buen intento, cerca de la zona.';
+    if(score >= 25) return 'Anduviste lejos.';
+    if(score > 0) return 'Muy lejos del lugar real.';
+    return 'Fuera de rango.';
+  }
+
+  function formatMeters(m){
+    if(m < 1000) return `${Math.round(m)} m`;
+    return `${(m/1000).toFixed(m < 10000 ? 1 : 0)} km`;
+  }
+
+  async function renderGame(user, cfg){
+    root.innerHTML = `
+      <div class="topbar">
+        <div class="brand display">coorden<b>a</b>da</div>
+        <div class="userbit">
+          <span>jugando como <b>${user}</b></span>
+          <button class="textbtn" id="changeUserBtn">cambiar usuario</button>
+          <button class="textbtn" id="settingsBtn">repositorio</button>
+        </div>
+      </div>
+      <div class="wrap" id="gameArea">
+        <div class="help" style="text-align:center; margin-top:60px;">Cargando banco de fotos…</div>
+      </div>
+    `;
+    document.getElementById('changeUserBtn').addEventListener('click', () => { localStorage.removeItem(LS_USER); render(); });
+    document.getElementById('settingsBtn').addEventListener('click', () => { localStorage.removeItem(LS_CONFIG); render(); });
+
+    const gameArea = document.getElementById('gameArea');
+    let manifest;
+    try{ manifest = await loadManifest(cfg); }
+    catch(e){
+      gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">No pude leer el manifest del repositorio. Revisalo desde "repositorio" arriba.</div>`;
+      return;
+    }
+
+    let progress = getProgress(user);
+    if(progress.index >= manifest.length){ renderFinished(gameArea, user, progress, manifest.length); return; }
+    loadPhoto(gameArea, user, cfg, manifest, progress);
+  }
+
+  async function loadPhoto(gameArea, user, cfg, manifest, progress){
+    const path = manifest[progress.index];
+    const imgUrl = rawUrl(cfg, path);
+
+    gameArea.innerHTML = `
+      <div class="progress-line">
+        <span>foto <span class="num">${progress.index + 1}</span> de ${manifest.length}</span>
+        <span>puntaje acumulado: <span class="num">${progress.history.reduce((a,b)=>a+b.score,0)}</span></span>
+      </div>
+      <div class="help" style="text-align:center; margin-top:40px;">Cargando fotografía y coordenadas…</div>
+    `;
+
+    let coords;
+    try{ coords = await extractGPS(imgUrl); }
+    catch(e){
+      gameArea.innerHTML += `<div class="err" style="text-align:center;">Esta foto (${path}) no tiene GPS legible en su EXIF. Saltando a la siguiente…</div>`;
+      progress.index += 1;
+      setProgress(user, progress);
+      setTimeout(() => loadPhoto(gameArea, user, cfg, manifest, progress), 900);
+      return;
+    }
+
+    let guessLatLng = null;
+    let guessed = false;
+
+    gameArea.innerHTML = `
+      <div class="progress-line">
+        <span>foto <span class="num">${progress.index + 1}</span> de ${manifest.length}</span>
+        <span>puntaje acumulado: <span class="num">${progress.history.reduce((a,b)=>a+b.score,0)}</span></span>
+      </div>
+      <div class="grid">
+        <div class="pane photo-pane">
+          <div class="pane-head"><span>la fotografía</span><span>${path}</span></div>
+          <img src="${imgUrl}" alt="Foto a ubicar">
+        </div>
+        <div class="pane">
+          <div class="pane-head"><span>marcá tu cálculo</span><span>vista satelital</span></div>
+          <div id="map"></div>
+        </div>
+      </div>
+      <div class="action-row">
+        <div class="readout" id="coordReadout">Todavía no marcaste ningún punto.</div>
+        <button class="btn" style="width:auto;" id="confirmBtn" disabled>Confirmar ubicación</button>
+      </div>
+      <div id="resultArea"></div>
+    `;
+
+    const map = L.map('map', { worldCopyJump:true }).setView([20,0], 2);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri', maxZoom: 19
+    }).addTo(map);
+
+    let guessMarker;
+    map.on('click', function(e){
+      if(guessed) return;
+      guessLatLng = e.latlng;
+      if(guessMarker) map.removeLayer(guessMarker);
+      guessMarker = L.circleMarker(e.latlng, { radius: 7, color:'#ff6a3d', weight:2, fillColor:'#ff6a3d', fillOpacity:0.9 }).addTo(map);
+      document.getElementById('coordReadout').innerHTML = `marcaste: <b>${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}</b>`;
+      document.getElementById('confirmBtn').disabled = false;
+    });
+
+    document.getElementById('confirmBtn').addEventListener('click', () => {
+      if(!guessLatLng || guessed) return;
+      guessed = true;
+      document.getElementById('confirmBtn').disabled = true;
+
+      const distM = haversineMeters(guessLatLng.lat, guessLatLng.lng, coords.lat, coords.lng);
+      const score = scoreFromMeters(distM);
+
+      L.circleMarker([coords.lat, coords.lng], { radius: 7, color:'#7fd6c2', weight:2, fillColor:'#7fd6c2', fillOpacity:0.9 })
+        .addTo(map).bindPopup('Ubicación real').openPopup();
+      L.polyline([guessLatLng, [coords.lat, coords.lng]], { color:'#e9e9de', weight:1.5, dashArray:'5,7', opacity:0.6 }).addTo(map);
+      map.fitBounds(L.latLngBounds([guessLatLng, [coords.lat, coords.lng]]), { padding:[60,60] });
+
+      progress.history.push({ path, score, distM });
+      setProgress(user, progress);
+
+      const isLast = progress.index + 1 >= manifest.length;
+
+      document.getElementById('resultArea').innerHTML = `
+        <div class="result">
+          <div class="distance">estuviste a <b>${formatMeters(distM)}</b> del lugar real</div>
+          <div class="score display">${score}<sup>/100</sup></div>
+          <div class="verdict">${verdictFor(score)}</div>
+          <hr>
+          <div class="legend">
+            <span class="dot" style="background:#ff6a3d;"></span>tu marca
+            &nbsp;&nbsp;
+            <span class="dot" style="background:#7fd6c2;"></span>ubicación real
+          </div>
+          <button class="btn" id="nextBtn" style="margin-top:22px;">${isLast ? 'Ver resumen final' : 'Siguiente foto'}</button>
+        </div>
+      `;
+      document.getElementById('nextBtn').addEventListener('click', () => {
+        progress.index += 1;
+        setProgress(user, progress);
+        if(progress.index >= manifest.length){ renderFinished(gameArea, user, progress, manifest.length); }
+        else { loadPhoto(gameArea, user, cfg, manifest, progress); }
+      });
+    });
+  }
+
+  function renderFinished(gameArea, user, progress, total){
+    const totalScore = progress.history.reduce((a,b)=>a+b.score,0);
+    const avg = total ? Math.round(totalScore/total) : 0;
+    gameArea.innerHTML = `
+      <div class="result" style="margin-top:60px;">
+        <div class="eyebrow" style="text-align:left;">recorrido completo</div>
+        <div class="score display">${totalScore}</div>
+        <div class="distance">puntaje total sobre ${total * 100} posibles — promedio de <b>${avg}</b> pts por foto</div>
+        <hr>
+        <div class="legend" style="text-align:left; line-height:2;">
+          ${progress.history.map((h,i) => `${i+1}. ${h.path} — ${formatMeters(h.distM)} — ${h.score} pts`).join('<br>')}
+        </div>
+        <button class="btn" id="restartBtn" style="margin-top:22px;">Jugar de nuevo desde el principio</button>
+      </div>
+    `;
+    document.getElementById('restartBtn').addEventListener('click', () => { setProgress(user, { index: 0, history: [] }); render(); });
+  }
+
+  render();
+})();
+</script>
+
+</body>
+</html>
