@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root{
     --slate: #10161c;
@@ -15,6 +16,7 @@
     --paper: #e9e9de;
     --paper-dim: rgba(233,233,222,0.55);
     --signal: #ff6a3d;
+    --teal: #7fd6c2;
     --grid: #3a5a55;
   }
   *{box-sizing:border-box;}
@@ -31,74 +33,46 @@
   }
   .display{ font-family: Georgia, 'Times New Roman', serif; }
 
-  .center-screen{
-    min-height:100vh; display:flex; align-items:center; justify-content:center; padding: 24px;
-  }
-  .card{
-    width:100%; max-width: 420px;
-    background: var(--slate-2); border: 1px solid var(--line);
-    padding: 36px 32px;
-  }
+  .center-screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding: 24px; }
+  .card{ width:100%; max-width: 420px; background: var(--slate-2); border: 1px solid var(--line); padding: 36px 32px; }
   .card .eyebrow{ font-size: 12px; color: var(--grid); }
-  .card h1{
-    font-family: Georgia, 'Times New Roman', serif;
-    font-weight: 400; font-size: 30px; margin: 6px 0 18px; color: var(--paper);
-  }
-  .field{
-    width:100%; background: var(--slate); border: 1px solid rgba(233,233,222,0.2);
-    color: var(--paper); padding: 13px 14px; font-size: 15px; font-family: inherit; margin-bottom: 12px;
-  }
+  .card h1{ font-family: Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 30px; margin: 6px 0 18px; color: var(--paper); }
+  .field{ width:100%; background: var(--slate); border: 1px solid rgba(233,233,222,0.2); color: var(--paper); padding: 13px 14px; font-size: 15px; font-family: inherit; margin-bottom: 12px; }
   .field:focus{ outline:none; border-color: var(--signal); }
-  .btn{
-    display:inline-block; width:100%; background: var(--signal); color: #17110c;
-    border:none; padding: 13px 20px; font-size: 14px; font-weight: 700; cursor:pointer; font-family: inherit;
-  }
+  .btn{ display:inline-block; width:100%; background: var(--signal); color: #17110c; border:none; padding: 13px 20px; font-size: 14px; font-weight: 700; cursor:pointer; font-family: inherit; }
   .btn:hover{ background:#ff8259; }
   .btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .btn-ghost{ background:transparent; color: var(--paper); border:1px solid rgba(233,233,222,0.25); }
+  .btn-ghost:hover{ border-color: var(--signal); color:var(--signal); }
   .err{ color:#ff8f78; font-size: 13px; margin-top: 10px; line-height:1.5; }
   .help{ color: var(--paper-dim); font-size: 13px; line-height:1.6; margin-top: 4px;}
 
-  .topbar{
-    display:flex; align-items:center; justify-content: space-between;
-    padding: 16px 22px; border-bottom: 1px solid var(--line);
-  }
+  .topbar{ display:flex; align-items:center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid var(--line); flex-wrap:wrap; gap:10px; }
   .brand{ font-family: Georgia, 'Times New Roman', serif; font-size: 19px; }
   .brand b{ color: var(--signal); font-weight:400; }
-  .userbit{ font-size: 13px; color: var(--paper-dim); display:flex; align-items:center; gap:14px; }
+  .userbit{ font-size: 13px; color: var(--paper-dim); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
   .userbit b{ color: var(--paper); font-weight:600; }
-  .textbtn{
-    background:none;border:none;color:var(--paper-dim);
-    font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;
-  }
+  .textbtn{ background:none;border:none;color:var(--paper-dim); font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline;padding:0; }
   .textbtn:hover{ color:var(--paper); }
+  .textbtn.active{ color: var(--signal); }
 
   .wrap{ max-width: 1180px; margin: 0 auto; padding: 22px; }
-  .progress-line{
-    display:flex; justify-content:space-between; align-items:baseline;
-    font-size: 13px; color: var(--paper-dim); margin-bottom: 14px;
-  }
+  .progress-line{ display:flex; justify-content:space-between; align-items:baseline; font-size: 13px; color: var(--paper-dim); margin-bottom: 14px; }
   .progress-line .num{ color: var(--paper); font-weight:600; }
 
   .grid{ display:grid; grid-template-columns: 1.05fr 1fr; gap: 16px; }
   @media (max-width: 860px){ .grid{ grid-template-columns: 1fr; } }
 
   .pane{ background: var(--slate-2); border: 1px solid var(--line); }
-  .pane-head{
-    padding: 10px 14px; font-size: 11px; color: var(--paper-dim);
-    border-bottom: 1px solid var(--line); display:flex; justify-content:space-between;
-  }
+  .pane-head{ padding: 10px 14px; font-size: 11px; color: var(--paper-dim); border-bottom: 1px solid var(--line); display:flex; justify-content:space-between; }
   .photo-pane img{ width:100%; display:block; max-height: 60vh; object-fit: contain; background:#000; }
-  #map{ height: 60vh; width:100%; background:#0c0f0c; }
+  .leaflet-map{ height: 60vh; width:100%; background:#0c0f0c; }
 
   .action-row{ display:flex; justify-content:space-between; align-items:center; margin-top: 16px; gap: 14px; flex-wrap: wrap; }
   .readout{ font-size: 13px; color: var(--paper-dim); }
   .readout b{ color: var(--signal); font-weight:600; }
 
-  .result{
-    max-width: 480px; margin: 22px auto 0;
-    background: var(--slate-2); border: 1px solid var(--line);
-    padding: 30px 34px; text-align:center;
-  }
+  .result{ max-width: 480px; margin: 22px auto 0; background: var(--slate-2); border: 1px solid var(--line); padding: 30px 34px; text-align:center; }
   .result .distance{ font-family: Georgia, serif; font-size: 17px; color: var(--paper-dim); }
   .result .distance b{ color: var(--paper); font-weight:600; }
   .result .score{ font-family: Georgia, serif; font-size: 76px; line-height: 1; margin: 12px 0 2px; color: var(--signal); }
@@ -108,8 +82,18 @@
   .result .legend{ font-size: 12px; color: var(--paper-dim); }
   .dot{ display:inline-block; width:9px;height:9px;border-radius:50%; margin-right:6px; vertical-align:middle; }
 
-  .settings-body{ font-size: 13px; color: var(--paper-dim); line-height:1.7; }
-  .settings-body code{ background: var(--slate); padding: 2px 6px; color: var(--paper); }
+  .compare-photo{ background: var(--slate-2); border: 1px solid var(--line); margin-bottom: 22px; }
+  .compare-photo .pane-head{ }
+  .compare-body{ display:grid; grid-template-columns: 1fr 1fr; gap:0; }
+  @media (max-width: 860px){ .compare-body{ grid-template-columns: 1fr; } }
+  .compare-map{ height: 340px; width:100%; }
+  .compare-table{ padding: 14px 18px; font-size: 13px; }
+  .compare-table table{ width:100%; border-collapse:collapse; }
+  .compare-table th{ text-align:left; color: var(--paper-dim); font-weight:500; font-size:11px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  .compare-table td{ padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .compare-table tr:last-child td{ border-bottom:none; }
+  .swatch{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; }
+  .locked{ text-align:center; color: var(--paper-dim); font-size:14px; margin-top:60px; line-height:1.8; }
 </style>
 </head>
 <body>
@@ -118,85 +102,31 @@
 
 <script>
 (function(){
-  const DEFAULT_CONFIG = { owner: "", repo: "", branch: "main", manifestPath: "manifest.json" };
-  const LS_USER = "coordenada_user";
-  const LS_CONFIG = "coordenada_config";
-  const LS_PROGRESS_PREFIX = "coordenada_progress_";
+  /* ============ CONFIG (hardcoded) ============ */
+  const GITHUB_OWNER = "tebimosca";
+  const GITHUB_REPO = "bomboncitos";
+  const GITHUB_BRANCH = "main";
+  const MANIFEST_PATH = "manifest.json";
 
+  const SUPABASE_URL = "https://usxonhttmrzgaznvgksf.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzeG9uaHR0bXJ6Z2F6bnZna3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyODU1OTksImV4cCI6MjEwMzg2MTU5OX0.utIi2q19x5TL-kF4ymrC-0cbJ2t0h0MXpeXDSA9f0wI";
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const LS_USER = "coordenada_user";
   const root = document.getElementById('root');
 
-  function getConfig(){
-    try{
-      const raw = localStorage.getItem(LS_CONFIG);
-      if(raw) return Object.assign({}, DEFAULT_CONFIG, JSON.parse(raw));
-    }catch(e){}
-    return Object.assign({}, DEFAULT_CONFIG);
-  }
-  function setConfig(cfg){ localStorage.setItem(LS_CONFIG, JSON.stringify(cfg)); }
   function getUser(){ return localStorage.getItem(LS_USER); }
   function setUser(name){ localStorage.setItem(LS_USER, name); }
-  function getProgress(user){
-    try{
-      const raw = localStorage.getItem(LS_PROGRESS_PREFIX + user);
-      if(raw) return JSON.parse(raw);
-    }catch(e){}
-    return { index: 0, history: [] };
-  }
-  function setProgress(user, progress){ localStorage.setItem(LS_PROGRESS_PREFIX + user, JSON.stringify(progress)); }
-  function rawUrl(cfg, path){ return `https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${path}`; }
+  function rawUrl(path){ return `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${path}`; }
 
+  /* ============ router ============ */
   function render(){
     const user = getUser();
-    const cfg = getConfig();
-    if(!cfg.owner || !cfg.repo){ renderSettings(); }
-    else if(!user){ renderLogin(); }
-    else { renderGame(user, cfg); }
+    if(!user){ renderLogin(); } else { renderGame(user); }
   }
 
-  function renderSettings(){
-    const cfg = getConfig();
-    root.innerHTML = `
-      <div class="center-screen">
-        <div class="card">
-          <div class="eyebrow">configuración</div>
-          <h1 class="display">Conectar banco de fotos</h1>
-          <div class="settings-body" style="margin-bottom:16px;">
-            La web lee las fotos y el orden desde un repositorio público de GitHub.
-            Necesita un archivo <code>manifest.json</code> en la raíz, con la lista de rutas de imagen en orden, por ejemplo:
-            <br><code>["fotos/001.jpg","fotos/002.jpg"]</code>
-          </div>
-          <input class="field" id="cfgOwner" placeholder="usuario u organización de GitHub" value="${cfg.owner || ''}">
-          <input class="field" id="cfgRepo" placeholder="nombre del repositorio" value="${cfg.repo || ''}">
-          <input class="field" id="cfgBranch" placeholder="rama (por defecto: main)" value="${cfg.branch || 'main'}">
-          <input class="field" id="cfgManifest" placeholder="ruta del manifest (por defecto: manifest.json)" value="${cfg.manifestPath || 'manifest.json'}">
-          <button class="btn" id="saveCfg">Guardar y continuar</button>
-          <div class="err" id="cfgErr"></div>
-        </div>
-      </div>
-    `;
-    document.getElementById('saveCfg').addEventListener('click', async () => {
-      const owner = document.getElementById('cfgOwner').value.trim();
-      const repo = document.getElementById('cfgRepo').value.trim();
-      const branch = document.getElementById('cfgBranch').value.trim() || 'main';
-      const manifestPath = document.getElementById('cfgManifest').value.trim() || 'manifest.json';
-      const errEl = document.getElementById('cfgErr');
-      errEl.textContent = '';
-      if(!owner || !repo){ errEl.textContent = 'Completá usuario/organización y repositorio.'; return; }
-      const testCfg = { owner, repo, branch, manifestPath };
-      try{
-        const res = await fetch(rawUrl(testCfg, manifestPath));
-        if(!res.ok) throw new Error('no encontrado');
-        const list = await res.json();
-        if(!Array.isArray(list) || list.length === 0) throw new Error('vacío');
-      }catch(e){
-        errEl.textContent = 'No pude leer el manifest en ese repositorio. Revisá que sea público y que el archivo exista en esa ruta y rama.';
-        return;
-      }
-      setConfig(testCfg);
-      render();
-    });
-  }
-
+  /* ============ login ============ */
   function renderLogin(){
     root.innerHTML = `
       <div class="center-screen">
@@ -209,10 +139,18 @@
         </div>
       </div>
     `;
-    const submit = () => {
+    const submit = async () => {
       const val = document.getElementById('nameInput').value.trim();
       const errEl = document.getElementById('loginErr');
       if(!val){ errEl.textContent = 'Escribí un nombre para continuar.'; return; }
+      const btn = document.getElementById('startBtn');
+      btn.disabled = true; btn.textContent = 'Entrando…';
+      const { error } = await sb.from('players').upsert({ name: val }, { onConflict: 'name' });
+      if(error){
+        errEl.textContent = 'No pude conectar con la base de datos. Probá de nuevo.';
+        btn.disabled = false; btn.textContent = 'Entrar';
+        return;
+      }
       setUser(val);
       render();
     };
@@ -221,10 +159,11 @@
     document.getElementById('nameInput').focus();
   }
 
+  /* ============ helpers ============ */
   let manifestCache = null;
-  async function loadManifest(cfg){
+  async function loadManifest(){
     if(manifestCache) return manifestCache;
-    const res = await fetch(rawUrl(cfg, cfg.manifestPath));
+    const res = await fetch(rawUrl(MANIFEST_PATH));
     manifestCache = await res.json();
     return manifestCache;
   }
@@ -267,8 +206,7 @@
   }
 
   function scoreFromMeters(m){
-    const D0 = 10;
-    const DMAX = 100000;
+    const D0 = 10, DMAX = 100000;
     if(m <= D0) return 100;
     if(m >= DMAX) return 0;
     const s = 100 * Math.log(DMAX / m) / Math.log(DMAX / D0);
@@ -289,44 +227,76 @@
     return `${(m/1000).toFixed(m < 10000 ? 1 : 0)} km`;
   }
 
-  async function renderGame(user, cfg){
+  function satelliteLayer(){
+    return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri', maxZoom: 19
+    });
+  }
+
+  const PALETTE = ['#ff6a3d','#7fd6c2','#e0c341','#9b8cff','#ff9ecf','#5fb4ff','#ffab5c','#c4f562'];
+  function colorFor(name){
+    let hash = 0;
+    for(let i=0;i<name.length;i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return PALETTE[Math.abs(hash) % PALETTE.length];
+  }
+
+  /* ============ game ============ */
+  async function renderGame(user){
     root.innerHTML = `
       <div class="topbar">
         <div class="brand display">coorden<b>a</b>da</div>
         <div class="userbit">
           <span>jugando como <b>${user}</b></span>
+          <button class="textbtn" id="playTab">jugar</button>
+          <button class="textbtn" id="compareTab">comparar resultados</button>
           <button class="textbtn" id="changeUserBtn">cambiar usuario</button>
-          <button class="textbtn" id="settingsBtn">repositorio</button>
         </div>
       </div>
       <div class="wrap" id="gameArea">
-        <div class="help" style="text-align:center; margin-top:60px;">Cargando banco de fotos…</div>
+        <div class="help" style="text-align:center; margin-top:60px;">Cargando…</div>
       </div>
     `;
     document.getElementById('changeUserBtn').addEventListener('click', () => { localStorage.removeItem(LS_USER); render(); });
-    document.getElementById('settingsBtn').addEventListener('click', () => { localStorage.removeItem(LS_CONFIG); render(); });
+    document.getElementById('playTab').addEventListener('click', () => showPlay(user));
+    document.getElementById('compareTab').addEventListener('click', () => showCompare(user));
 
+    showPlay(user);
+  }
+
+  async function showPlay(user){
     const gameArea = document.getElementById('gameArea');
+    gameArea.innerHTML = `<div class="help" style="text-align:center; margin-top:60px;">Cargando banco de fotos…</div>`;
+
     let manifest;
-    try{ manifest = await loadManifest(cfg); }
+    try{ manifest = await loadManifest(); }
     catch(e){
-      gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">No pude leer el manifest del repositorio. Revisalo desde "repositorio" arriba.</div>`;
+      gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">No pude leer el manifest del repositorio.</div>`;
       return;
     }
 
-    let progress = getProgress(user);
-    if(progress.index >= manifest.length){ renderFinished(gameArea, user, progress, manifest.length); return; }
-    loadPhoto(gameArea, user, cfg, manifest, progress);
+    const { data: myAnswers, error } = await sb.from('answers').select('*').eq('player_name', user).order('photo_index');
+    if(error){
+      gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">No pude conectar con la base de datos.</div>`;
+      return;
+    }
+
+    const nextIndex = myAnswers.length;
+    if(nextIndex >= manifest.length){
+      renderFinished(gameArea, myAnswers, manifest.length);
+      return;
+    }
+    loadPhoto(gameArea, user, manifest, nextIndex, myAnswers);
   }
 
-  async function loadPhoto(gameArea, user, cfg, manifest, progress){
-    const path = manifest[progress.index];
-    const imgUrl = rawUrl(cfg, path);
+  async function loadPhoto(gameArea, user, manifest, index, myAnswers){
+    const path = manifest[index];
+    const imgUrl = rawUrl(path);
+    const totalScore = myAnswers.reduce((a,b)=>a+b.score,0);
 
     gameArea.innerHTML = `
       <div class="progress-line">
-        <span>foto <span class="num">${progress.index + 1}</span> de ${manifest.length}</span>
-        <span>puntaje acumulado: <span class="num">${progress.history.reduce((a,b)=>a+b.score,0)}</span></span>
+        <span>foto <span class="num">${index + 1}</span> de ${manifest.length}</span>
+        <span>puntaje acumulado: <span class="num">${totalScore}</span></span>
       </div>
       <div class="help" style="text-align:center; margin-top:40px;">Cargando fotografía y coordenadas…</div>
     `;
@@ -334,20 +304,16 @@
     let coords;
     try{ coords = await extractGPS(imgUrl); }
     catch(e){
-      gameArea.innerHTML += `<div class="err" style="text-align:center;">Esta foto (${path}) no tiene GPS legible en su EXIF. Saltando a la siguiente…</div>`;
-      progress.index += 1;
-      setProgress(user, progress);
-      setTimeout(() => loadPhoto(gameArea, user, cfg, manifest, progress), 900);
+      gameArea.innerHTML += `<div class="err" style="text-align:center;">Esta foto (${path}) no tiene GPS legible en su EXIF. No se puede jugar hasta que se corrija en el repositorio.</div>`;
       return;
     }
 
-    let guessLatLng = null;
-    let guessed = false;
+    let guessLatLng = null, guessed = false;
 
     gameArea.innerHTML = `
       <div class="progress-line">
-        <span>foto <span class="num">${progress.index + 1}</span> de ${manifest.length}</span>
-        <span>puntaje acumulado: <span class="num">${progress.history.reduce((a,b)=>a+b.score,0)}</span></span>
+        <span>foto <span class="num">${index + 1}</span> de ${manifest.length}</span>
+        <span>puntaje acumulado: <span class="num">${totalScore}</span></span>
       </div>
       <div class="grid">
         <div class="pane photo-pane">
@@ -356,7 +322,7 @@
         </div>
         <div class="pane">
           <div class="pane-head"><span>marcá tu cálculo</span><span>vista satelital</span></div>
-          <div id="map"></div>
+          <div class="leaflet-map" id="map"></div>
         </div>
       </div>
       <div class="action-row">
@@ -367,9 +333,7 @@
     `;
 
     const map = L.map('map', { worldCopyJump:true }).setView([20,0], 2);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles &copy; Esri', maxZoom: 19
-    }).addTo(map);
+    satelliteLayer().addTo(map);
 
     let guessMarker;
     map.on('click', function(e){
@@ -381,23 +345,43 @@
       document.getElementById('confirmBtn').disabled = false;
     });
 
-    document.getElementById('confirmBtn').addEventListener('click', () => {
+    document.getElementById('confirmBtn').addEventListener('click', async () => {
       if(!guessLatLng || guessed) return;
       guessed = true;
-      document.getElementById('confirmBtn').disabled = true;
+      const confirmBtn = document.getElementById('confirmBtn');
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Guardando…';
 
       const distM = haversineMeters(guessLatLng.lat, guessLatLng.lng, coords.lat, coords.lng);
       const score = scoreFromMeters(distM);
+
+      const { error } = await sb.from('answers').insert({
+        player_name: user,
+        photo_path: path,
+        photo_index: index,
+        guess_lat: guessLatLng.lat,
+        guess_lng: guessLatLng.lng,
+        actual_lat: coords.lat,
+        actual_lng: coords.lng,
+        distance_m: distM,
+        score: score
+      });
+
+      if(error){
+        guessed = false;
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Confirmar ubicación';
+        document.getElementById('resultArea').innerHTML = `<div class="err" style="text-align:center;">No se pudo guardar tu respuesta. Probá de nuevo.</div>`;
+        return;
+      }
 
       L.circleMarker([coords.lat, coords.lng], { radius: 7, color:'#7fd6c2', weight:2, fillColor:'#7fd6c2', fillOpacity:0.9 })
         .addTo(map).bindPopup('Ubicación real').openPopup();
       L.polyline([guessLatLng, [coords.lat, coords.lng]], { color:'#e9e9de', weight:1.5, dashArray:'5,7', opacity:0.6 }).addTo(map);
       map.fitBounds(L.latLngBounds([guessLatLng, [coords.lat, coords.lng]]), { padding:[60,60] });
 
-      progress.history.push({ path, score, distM });
-      setProgress(user, progress);
-
-      const isLast = progress.index + 1 >= manifest.length;
+      myAnswers.push({ player_name:user, photo_path:path, photo_index:index, distance_m:distM, score:score });
+      const isLast = index + 1 >= manifest.length;
 
       document.getElementById('resultArea').innerHTML = `
         <div class="result">
@@ -414,16 +398,14 @@
         </div>
       `;
       document.getElementById('nextBtn').addEventListener('click', () => {
-        progress.index += 1;
-        setProgress(user, progress);
-        if(progress.index >= manifest.length){ renderFinished(gameArea, user, progress, manifest.length); }
-        else { loadPhoto(gameArea, user, cfg, manifest, progress); }
+        if(isLast){ renderFinished(gameArea, myAnswers, manifest.length); }
+        else { loadPhoto(gameArea, user, manifest, index + 1, myAnswers); }
       });
     });
   }
 
-  function renderFinished(gameArea, user, progress, total){
-    const totalScore = progress.history.reduce((a,b)=>a+b.score,0);
+  function renderFinished(gameArea, myAnswers, total){
+    const totalScore = myAnswers.reduce((a,b)=>a+b.score,0);
     const avg = total ? Math.round(totalScore/total) : 0;
     gameArea.innerHTML = `
       <div class="result" style="margin-top:60px;">
@@ -432,12 +414,87 @@
         <div class="distance">puntaje total sobre ${total * 100} posibles — promedio de <b>${avg}</b> pts por foto</div>
         <hr>
         <div class="legend" style="text-align:left; line-height:2;">
-          ${progress.history.map((h,i) => `${i+1}. ${h.path} — ${formatMeters(h.distM)} — ${h.score} pts`).join('<br>')}
+          ${myAnswers.map((h,i) => `${i+1}. ${h.photo_path} — ${formatMeters(h.distance_m)} — ${h.score} pts`).join('<br>')}
         </div>
-        <button class="btn" id="restartBtn" style="margin-top:22px;">Jugar de nuevo desde el principio</button>
+        <button class="btn btn-ghost" id="goCompareBtn" style="margin-top:22px;">Comparar con otros jugadores</button>
       </div>
     `;
-    document.getElementById('restartBtn').addEventListener('click', () => { setProgress(user, { index: 0, history: [] }); render(); });
+    document.getElementById('goCompareBtn').addEventListener('click', () => showCompare(getUser()));
+  }
+
+  /* ============ compare view ============ */
+  async function showCompare(user){
+    const gameArea = document.getElementById('gameArea');
+    gameArea.innerHTML = `<div class="help" style="text-align:center; margin-top:60px;">Cargando comparación…</div>`;
+
+    let manifest;
+    try{ manifest = await loadManifest(); }
+    catch(e){
+      gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">No pude leer el manifest del repositorio.</div>`;
+      return;
+    }
+
+    const { data: myAnswers } = await sb.from('answers').select('*').eq('player_name', user);
+    if(!myAnswers || myAnswers.length < manifest.length){
+      gameArea.innerHTML = `<div class="locked">Todavía no completaste todas las fotos.<br>Terminá tu recorrido para poder ver cómo respondieron los demás.</div>`;
+      return;
+    }
+
+    const { data: allAnswers, error } = await sb.from('answers').select('*').order('photo_index');
+    if(error){
+      gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">No pude cargar las respuestas de todos.</div>`;
+      return;
+    }
+
+    const byPhoto = {};
+    manifest.forEach((path, i) => byPhoto[i] = { path, answers: [] });
+    allAnswers.forEach(a => { if(byPhoto[a.photo_index]) byPhoto[a.photo_index].answers.push(a); });
+
+    gameArea.innerHTML = `
+      <div class="progress-line"><span>comparación de resultados — todas las fotos</span></div>
+      <div id="compareList"></div>
+    `;
+    const list = document.getElementById('compareList');
+
+    Object.keys(byPhoto).forEach(idx => {
+      const { path, answers } = byPhoto[idx];
+      const wrap = document.createElement('div');
+      wrap.className = 'compare-photo';
+      const sorted = [...answers].sort((a,b) => b.score - a.score);
+      wrap.innerHTML = `
+        <div class="pane-head"><span>foto ${Number(idx)+1}</span><span>${path}</span></div>
+        <div class="compare-body">
+          <div class="compare-map" id="cmap-${idx}"></div>
+          <div class="compare-table">
+            <table>
+              <thead><tr><th>jugador</th><th>distancia</th><th>puntaje</th></tr></thead>
+              <tbody>
+                ${sorted.map(a => `<tr><td><span class="swatch" style="background:${colorFor(a.player_name)}"></span>${a.player_name}</td><td>${formatMeters(a.distance_m)}</td><td>${a.score}</td></tr>`).join('')}
+                ${sorted.length === 0 ? '<tr><td colspan="3">Sin respuestas todavía.</td></tr>' : ''}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+      list.appendChild(wrap);
+
+      const map = L.map(`cmap-${idx}`, { worldCopyJump:true, zoomControl:false }).setView([20,0], 2);
+      satelliteLayer().addTo(map);
+      const bounds = [];
+      if(answers.length){
+        const actual = answers[0];
+        const realMarker = L.circleMarker([actual.actual_lat, actual.actual_lng], { radius: 8, color:'#e9e9de', weight:2, fillColor:'#e9e9de', fillOpacity:0.9 })
+          .addTo(map).bindPopup('Ubicación real');
+        bounds.push([actual.actual_lat, actual.actual_lng]);
+      }
+      answers.forEach(a => {
+        const c = colorFor(a.player_name);
+        L.circleMarker([a.guess_lat, a.guess_lng], { radius: 6, color:c, weight:2, fillColor:c, fillOpacity:0.85 })
+          .addTo(map).bindPopup(`${a.player_name} — ${formatMeters(a.distance_m)} — ${a.score} pts`);
+        bounds.push([a.guess_lat, a.guess_lng]);
+      });
+      if(bounds.length){ map.fitBounds(L.latLngBounds(bounds), { padding:[40,40] }); }
+    });
   }
 
   render();
