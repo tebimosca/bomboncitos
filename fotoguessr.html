@@ -226,9 +226,9 @@
         <div class="card">
           <div class="eyebrow">fotoguessr</div>
           <h1 class="display">Entrá con tu mail</h1>
-          <p class="help" style="margin-bottom:16px;">Te mandamos un link para entrar, sin contraseña.</p>
+          <p class="help" style="margin-bottom:16px;">Te mandamos un código de 6 dígitos para entrar, sin contraseña.</p>
           <input class="field" id="emailInput" placeholder="tu@mail.com" autocomplete="email">
-          <button class="btn" id="sendBtn">Enviarme el link</button>
+          <button class="btn" id="sendBtn">Enviarme el código</button>
           <div id="authMsg"></div>
         </div>
       </div>
@@ -239,11 +239,48 @@
       if(!email){ msgEl.innerHTML = '<div class="err">Escribí tu mail.</div>'; return; }
       const btn = document.getElementById('sendBtn');
       btn.disabled = true; btn.textContent = 'Enviando…';
-      const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: currentUrlBase() + window.location.search } });
-      btn.disabled = false; btn.textContent = 'Enviarme el link';
+      const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+      btn.disabled = false; btn.textContent = 'Enviarme el código';
       if(error){ msgEl.innerHTML = `<div class="err">Error: ${error.message}</div>`; return; }
-      msgEl.innerHTML = '<div class="ok">Listo, revisá tu mail y tocá el link para entrar.</div>';
+      renderVerifyCode(email);
     });
+  }
+
+  function renderVerifyCode(email){
+    root.innerHTML = `
+      <div class="center-screen">
+        <div class="card">
+          <div class="eyebrow">fotoguessr</div>
+          <h1 class="display">Ingresá el código</h1>
+          <p class="help" style="margin-bottom:16px;">Te lo mandamos a <b>${email}</b>. Revisá también spam.</p>
+          <input class="field" id="codeInput" placeholder="123456" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+          <button class="btn" id="verifyBtn">Entrar</button>
+          <div id="verifyMsg"></div>
+          <button class="textbtn" id="backToEmailBtn" style="margin-top:14px;">usar otro mail</button>
+        </div>
+      </div>
+    `;
+    const submit = async () => {
+      const code = document.getElementById('codeInput').value.trim();
+      const msgEl = document.getElementById('verifyMsg');
+      if(!code){ msgEl.innerHTML = '<div class="err">Escribí el código.</div>'; return; }
+      const btn = document.getElementById('verifyBtn');
+      btn.disabled = true; btn.textContent = 'Verificando…';
+      const { error } = await sb.auth.verifyOtp({ email, token: code, type: 'email' });
+      if(error){
+        btn.disabled = false; btn.textContent = 'Entrar';
+        msgEl.innerHTML = `<div class="err">Error: ${error.message}</div>`;
+        return;
+      }
+      // onAuthStateChange dispara route() solo, pero por las dudas forzamos:
+      const { data } = await sb.auth.getSession();
+      session = data.session;
+      route();
+    };
+    document.getElementById('verifyBtn').addEventListener('click', submit);
+    document.getElementById('codeInput').addEventListener('keydown', e => { if(e.key === 'Enter') submit(); });
+    document.getElementById('backToEmailBtn').addEventListener('click', renderAuth);
+    document.getElementById('codeInput').focus();
   }
 
   function renderChooseName(){
