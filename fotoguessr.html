@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FotoGuessr</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --slate:#10161c; --slate-2:#171f27; --line:rgba(233,233,222,0.10);
+    --paper:#e9e9de; --paper-dim:rgba(233,233,222,0.55);
+    --signal:#ff6a3d; --teal:#7fd6c2; --grid:#3a5a55;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background: var(--slate); color: var(--paper); min-height:100vh;
+    font-family: -apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 42px 42px;
+  }
+  .display{ font-family: Georgia,'Times New Roman',serif; }
+  .center-screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding: 24px; }
+  .card{ width:100%; max-width: 420px; background: var(--slate-2); border: 1px solid var(--line); padding: 36px 32px; }
+  .card .eyebrow{ font-size: 12px; color: var(--grid); }
+  .card h1{ font-family: Georgia, serif; font-weight: 400; font-size: 28px; margin: 6px 0 18px; }
+  .field{ width:100%; background: var(--slate); border: 1px solid rgba(233,233,222,0.2); color: var(--paper); padding: 13px 14px; font-size: 15px; font-family: inherit; margin-bottom: 12px; }
+  .field:focus{ outline:none; border-color: var(--signal); }
+  .btn{ display:inline-block; width:100%; background: var(--signal); color: #17110c; border:none; padding: 13px 20px; font-size: 14px; font-weight: 700; cursor:pointer; font-family: inherit; }
+  .btn:hover{ background:#ff8259; }
+  .btn:disabled{ opacity:0.35; cursor:not-allowed; }
+  .btn-ghost{ background:transparent; color: var(--paper); border:1px solid rgba(233,233,222,0.25); }
+  .btn-ghost:hover{ border-color: var(--signal); color:var(--signal); }
+  .btn-danger{ background:transparent; color:#ff8f78; border:1px solid rgba(255,143,120,0.4); }
+  .btn-danger:hover{ background:rgba(255,143,120,0.1); }
+  .err{ color:#ff8f78; font-size: 13px; margin-top: 10px; line-height:1.5; }
+  .ok{ color: var(--teal); font-size: 13px; margin-top: 10px; line-height:1.5; }
+  .help{ color: var(--paper-dim); font-size: 13px; line-height:1.6; margin-top: 4px;}
+
+  .topbar{ display:flex; align-items:center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid var(--line); flex-wrap:wrap; gap:10px; }
+  .brand{ font-family: Georgia, serif; font-size: 19px; }
+  .brand b{ color: var(--signal); font-weight:400; }
+  .userbit{ font-size: 13px; color: var(--paper-dim); display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .userbit b{ color: var(--paper); font-weight:600; }
+  .textbtn{ background:none;border:none;color:var(--paper-dim); font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline;padding:0; }
+  .textbtn:hover{ color:var(--paper); }
+
+  .wrap{ max-width: 1180px; margin: 0 auto; padding: 22px; }
+  .narrow{ max-width: 560px; margin: 0 auto; padding: 22px; }
+
+  .grouplist{ display:flex; flex-direction:column; gap:10px; margin-top:18px; }
+  .groupcard{
+    display:flex; justify-content:space-between; align-items:center;
+    background: var(--slate-2); border:1px solid var(--line); padding: 16px 18px; cursor:pointer;
+  }
+  .groupcard:hover{ border-color: var(--signal); }
+  .groupcard .gname{ font-family: Georgia, serif; font-size:17px; }
+  .groupcard .garrow{ color: var(--paper-dim); }
+
+  .progress-line{ display:flex; justify-content:space-between; align-items:baseline; font-size: 13px; color: var(--paper-dim); margin-bottom: 14px; }
+  .progress-line .num{ color: var(--paper); font-weight:600; }
+
+  .grid{ display:grid; grid-template-columns: 1.05fr 1fr; gap: 16px; }
+  @media (max-width: 860px){ .grid{ grid-template-columns: 1fr; } }
+  .pane{ background: var(--slate-2); border: 1px solid var(--line); }
+  .pane-head{ padding: 10px 14px; font-size: 11px; color: var(--paper-dim); border-bottom: 1px solid var(--line); display:flex; justify-content:space-between; }
+  .photo-pane img{ width:100%; display:block; max-height: 60vh; object-fit: contain; background:#000; }
+  .leaflet-map{ height: 60vh; width:100%; background:#0c0f0c; }
+
+  .action-row{ display:flex; justify-content:space-between; align-items:center; margin-top: 16px; gap: 14px; flex-wrap: wrap; }
+  .readout{ font-size: 13px; color: var(--paper-dim); }
+  .readout b{ color: var(--signal); font-weight:600; }
+
+  .result{ max-width: 480px; margin: 22px auto 0; background: var(--slate-2); border: 1px solid var(--line); padding: 30px 34px; text-align:center; }
+  .result .distance{ font-family: Georgia, serif; font-size: 17px; color: var(--paper-dim); }
+  .result .distance b{ color: var(--paper); font-weight:600; }
+  .result .score{ font-family: Georgia, serif; font-size: 76px; line-height: 1; margin: 12px 0 2px; color: var(--signal); }
+  .result .score sup{ font-size: 24px; color: var(--paper-dim); }
+  .result .verdict{ font-size: 14px; color: var(--paper-dim); margin-top:2px; }
+  .result hr{ border:none; border-top:1px solid var(--line); margin: 22px 0; }
+  .result .legend{ font-size: 12px; color: var(--paper-dim); }
+  .dot{ display:inline-block; width:9px;height:9px;border-radius:50%; margin-right:6px; vertical-align:middle; }
+
+  .leaderboard{ max-width: 480px; margin: 16px auto 0; background: var(--slate-2); border: 1px solid var(--line); padding: 22px 28px; }
+  .leaderboard h3{ margin:0 0 14px; font-family: Georgia, serif; font-weight:400; font-size:17px; }
+  .leaderboard table{ width:100%; border-collapse:collapse; font-size:13px; }
+  .leaderboard th{ text-align:left; color: var(--paper-dim); font-weight:500; font-size:11px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  .leaderboard td{ padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .leaderboard tr:last-child td{ border-bottom:none; }
+  .leaderboard .rank{ color: var(--paper-dim); width: 24px; }
+  .leaderboard .me{ color: var(--signal); font-weight:600; }
+
+  .compare-photo{ background: var(--slate-2); border: 1px solid var(--line); margin-bottom: 22px; }
+  .compare-body{ display:grid; grid-template-columns: 0.7fr 1fr 1fr; gap:0; }
+  @media (max-width: 960px){ .compare-body{ grid-template-columns: 1fr; } }
+  .compare-thumb{ display:flex; align-items:center; justify-content:center; background:#000; }
+  .compare-thumb img{ width:100%; height:100%; max-height:340px; object-fit:cover; display:block; }
+  .compare-map{ height: 340px; width:100%; }
+  .compare-table{ padding: 14px 18px; font-size: 13px; }
+  .compare-table table{ width:100%; border-collapse:collapse; }
+  .compare-table th{ text-align:left; color: var(--paper-dim); font-weight:500; font-size:11px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  .compare-table td{ padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .compare-table tr:last-child td{ border-bottom:none; }
+  .swatch{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; }
+  .locked{ text-align:center; color: var(--paper-dim); font-size:14px; margin-top:60px; line-height:1.8; }
+  .block-label{ font-size:11px; color: var(--grid); text-transform:uppercase; letter-spacing:0.06em; margin: 26px 0 10px; }
+  .block-label:first-child{ margin-top:0; }
+
+  .memberrow{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .memberrow:last-child{ border-bottom:none; }
+
+  .dropzone{
+    border: 1px dashed rgba(233,233,222,0.3); padding: 34px 20px; text-align:center;
+    background: rgba(233,233,222,0.02); cursor:pointer; margin-top:14px;
+  }
+  .dropzone.drag{ border-color: var(--signal); background: rgba(255,106,61,0.06); }
+  input[type=file]{ display:none; }
+  .queue{ margin-top: 18px; display:flex; flex-direction:column; gap:8px; }
+  .item{ display:flex; align-items:center; gap:10px; background: var(--slate-2); border:1px solid var(--line); padding: 8px 10px; font-size:12px; }
+  .item img{ width:44px; height:44px; object-fit:cover; flex-shrink:0; background:#000; }
+  .item .name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .status.pending{ color: var(--paper-dim); } .status.ok{ color: var(--teal); } .status.err{ color:#ff8f78; }
+
+  code{ background: var(--slate); padding: 2px 6px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+(function(){
+  /* ============ CONFIG ============ */
+  const SUPABASE_URL = "https://usxonhttmrzgaznvgksf.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzeG9uaHR0bXJ6Z2F6bnZna3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyODU1OTksImV4cCI6MjEwMzg2MTU5OX0.utIi2q19x5TL-kF4ymrC-0cbJ2t0h0MXpeXDSA9f0wI";
+  const BUCKET = "fotoguessr";
+  const BLOCK_SIZE = 5;
+
+  // Preparado para más adelante: borrar fotos ya jugadas por todo el grupo, para liberar espacio.
+  // Por ahora queda en false y no hace nada.
+  const AUTO_DELETE_PLAYED_PHOTOS = false;
+
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
+  });
+
+  const root = document.getElementById('root');
+  let session = null;
+  let myProfile = null;
+
+  /* ============ helpers ============ */
+  function haversineMeters(lat1, lon1, lat2, lon2){
+    const R = 6371000;
+    const dLat = (lat2-lat1) * Math.PI/180, dLon = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+  function scoreFromMeters(m){
+    const D0=10, DMAX=100000;
+    if(m<=D0) return 100; if(m>=DMAX) return 0;
+    return Math.max(0, Math.min(100, Math.round(100*Math.log(DMAX/m)/Math.log(DMAX/D0))));
+  }
+  function verdictFor(s){
+    if(s>=95) return 'Prácticamente exacto.';
+    if(s>=75) return 'Muy cerca del lugar real.';
+    if(s>=50) return 'Buen intento, cerca de la zona.';
+    if(s>=25) return 'Anduviste lejos.';
+    if(s>0) return 'Muy lejos del lugar real.';
+    return 'Fuera de rango.';
+  }
+  function formatMeters(m){ return m<1000 ? `${Math.round(m)} m` : `${(m/1000).toFixed(m<10000?1:0)} km`; }
+  function satelliteLayer(){
+    return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 19 });
+  }
+  const PALETTE = ['#ff6a3d','#7fd6c2','#e0c341','#9b8cff','#ff9ecf','#5fb4ff','#ffab5c','#c4f562'];
+  function colorFor(name){
+    let hash=0; for(let i=0;i<name.length;i++) hash = name.charCodeAt(i) + ((hash<<5)-hash);
+    return PALETTE[Math.abs(hash) % PALETTE.length];
+  }
+  function shuffle(arr){
+    const a=arr.slice();
+    for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+    return a;
+  }
+  function toDecimal(gps, ref){
+    if(!gps) return null;
+    let v = gps[0] + gps[1]/60 + gps[2]/3600;
+    if(ref==='S'||ref==='W') v=-v;
+    return v;
+  }
+  function currentUrlBase(){
+    const u = new URL(window.location.href);
+    u.search=''; u.hash=''; return u.toString();
+  }
+
+  /* ============ router ============ */
+  async function boot(){
+    const { data } = await sb.auth.getSession();
+    session = data.session;
+    sb.auth.onAuthStateChange((_event, s) => { session = s; route(); });
+    await route();
+  }
+
+  async function route(){
+    if(!session){ renderAuth(); return; }
+    const { data: profile } = await sb.from('fg_profiles').select('*').eq('user_id', session.user.id).maybeSingle();
+    if(!profile){ renderChooseName(); return; }
+    myProfile = profile;
+
+    const params = new URLSearchParams(window.location.search);
+    const joinCode = params.get('join');
+    if(joinCode){
+      window.history.replaceState({}, '', currentUrlBase());
+      const { data: gid, error } = await sb.rpc('fg_join_group', { p_code: joinCode });
+      if(!error && gid){ openGroup(gid); return; }
+    }
+    renderGroups();
+  }
+
+  /* ============ auth screens ============ */
+  function renderAuth(){
+    root.innerHTML = `
+      <div class="center-screen">
+        <div class="card">
+          <div class="eyebrow">fotoguessr</div>
+          <h1 class="display">Entrá con tu mail</h1>
+          <p class="help" style="margin-bottom:16px;">Te mandamos un link para entrar, sin contraseña.</p>
+          <input class="field" id="emailInput" placeholder="tu@mail.com" autocomplete="email">
+          <button class="btn" id="sendBtn">Enviarme el link</button>
+          <div id="authMsg"></div>
+        </div>
+      </div>
+    `;
+    document.getElementById('sendBtn').addEventListener('click', async () => {
+      const email = document.getElementById('emailInput').value.trim();
+      const msgEl = document.getElementById('authMsg');
+      if(!email){ msgEl.innerHTML = '<div class="err">Escribí tu mail.</div>'; return; }
+      const btn = document.getElementById('sendBtn');
+      btn.disabled = true; btn.textContent = 'Enviando…';
+      const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: currentUrlBase() + window.location.search } });
+      btn.disabled = false; btn.textContent = 'Enviarme el link';
+      if(error){ msgEl.innerHTML = `<div class="err">Error: ${error.message}</div>`; return; }
+      msgEl.innerHTML = '<div class="ok">Listo, revisá tu mail y tocá el link para entrar.</div>';
+    });
+  }
+
+  function renderChooseName(){
+    root.innerHTML = `
+      <div class="center-screen">
+        <div class="card">
+          <div class="eyebrow">último paso</div>
+          <h1 class="display">¿Cómo te llamás?</h1>
+          <input class="field" id="nameInput" placeholder="tu nombre" autocomplete="off">
+          <button class="btn" id="saveNameBtn">Continuar</button>
+          <div id="nameMsg"></div>
+        </div>
+      </div>
+    `;
+    document.getElementById('saveNameBtn').addEventListener('click', async () => {
+      const name = document.getElementById('nameInput').value.trim();
+      const msgEl = document.getElementById('nameMsg');
+      if(!name){ msgEl.innerHTML = '<div class="err">Escribí un nombre.</div>'; return; }
+      const { error } = await sb.from('fg_profiles').insert({ user_id: session.user.id, display_name: name });
+      if(error){ msgEl.innerHTML = `<div class="err">Error: ${error.message}</div>`; return; }
+      route();
+    });
+  }
+
+  /* ============ groups list ============ */
+  async function renderGroups(){
+    root.innerHTML = `
+      <div class="topbar">
+        <div class="brand display">Foto<b>G</b>uessr</div>
+        <div class="userbit"><span>hola, <b>${myProfile.display_name}</b></span>
+          <button class="textbtn" id="logoutBtn">cerrar sesión</button>
+        </div>
+      </div>
+      <div class="narrow" id="groupsArea">
+        <div class="help" style="text-align:center;margin-top:30px;">Cargando tus grupos…</div>
+      </div>
+    `;
+    document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); route(); });
+
+    const { data: memberships, error } = await sb.from('fg_group_members').select('group_id').eq('user_id', session.user.id);
+    const groupsArea = document.getElementById('groupsArea');
+    if(error){ groupsArea.innerHTML = `<div class="err">Error: ${error.message}</div>`; return; }
+
+    let groups = [];
+    if(memberships.length){
+      const ids = memberships.map(m => m.group_id);
+      const { data: gdata } = await sb.from('fg_groups').select('*').in('id', ids);
+      groups = gdata || [];
+    }
+
+    groupsArea.innerHTML = `
+      <h1 class="display" style="font-weight:400;">Tus grupos</h1>
+      <div class="grouplist" id="grouplist"></div>
+      <div class="card" style="margin-top:26px;max-width:none;">
+        <div class="eyebrow">nuevo grupo</div>
+        <input class="field" id="newGroupName" placeholder="nombre del grupo" style="margin-top:10px;">
+        <button class="btn" id="createGroupBtn">Crear grupo</button>
+        <div id="createMsg"></div>
+      </div>
+      <div class="card" style="margin-top:18px;max-width:none;">
+        <div class="eyebrow">unirme con código</div>
+        <input class="field" id="joinCodeInput" placeholder="código de invitación" style="margin-top:10px;">
+        <button class="btn btn-ghost" id="joinGroupBtn">Unirme</button>
+        <div id="joinMsg"></div>
+      </div>
+    `;
+
+    const listEl = document.getElementById('grouplist');
+    if(groups.length === 0){
+      listEl.innerHTML = `<div class="help">Todavía no sos parte de ningún grupo.</div>`;
+    } else {
+      groups.forEach(g => {
+        const el = document.createElement('div');
+        el.className = 'groupcard';
+        el.innerHTML = `<span class="gname display">${g.name}</span><span class="garrow">entrar →</span>`;
+        el.addEventListener('click', () => openGroup(g.id));
+        listEl.appendChild(el);
+      });
+    }
+
+    document.getElementById('createGroupBtn').addEventListener('click', async () => {
+      const name = document.getElementById('newGroupName').value.trim();
+      const msgEl = document.getElementById('createMsg');
+      if(!name){ msgEl.innerHTML = '<div class="err">Poné un nombre.</div>'; return; }
+      const { data: gid, error } = await sb.rpc('fg_create_group', { p_name: name });
+      if(error){ msgEl.innerHTML = `<div class="err">Error: ${error.message}</div>`; return; }
+      openGroup(gid);
+    });
+
+    document.getElementById('joinGroupBtn').addEventListener('click', async () => {
+      const code = document.getElementById('joinCodeInput').value.trim();
+      const msgEl = document.getElementById('joinMsg');
+      if(!code){ msgEl.innerHTML = '<div class="err">Pegá un código.</div>'; return; }
+      const { data: gid, error } = await sb.rpc('fg_join_group', { p_code: code });
+      if(error){ msgEl.innerHTML = `<div class="err">${error.message}</div>`; return; }
+      openGroup(gid);
+    });
+  }
+
+  /* ============ inside a group ============ */
+  async function openGroup(groupId){
+    const { data: group, error } = await sb.from('fg_groups').select('*').eq('id', groupId).single();
+    if(error){ root.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error: ${error.message}</div>`; return; }
+
+    const { data: myMembership } = await sb.from('fg_group_members').select('*').eq('group_id', groupId).eq('user_id', session.user.id).maybeSingle();
+    const isAdmin = !!(myMembership && myMembership.is_admin);
+
+    root.innerHTML = `
+      <div class="topbar">
+        <div class="brand display">Foto<b>G</b>uessr — ${group.name}</div>
+        <div class="userbit">
+          <button class="textbtn" id="playTab">jugar</button>
+          <button class="textbtn" id="uploadTab">cargar fotos</button>
+          <button class="textbtn" id="compareTab">comparar</button>
+          <button class="textbtn" id="membersTab">miembros</button>
+          <button class="textbtn" id="backBtn">‹ mis grupos</button>
+        </div>
+      </div>
+      <div class="wrap" id="groupArea"><div class="help" style="text-align:center;margin-top:60px;">Cargando…</div></div>
+    `;
+    document.getElementById('backBtn').addEventListener('click', renderGroups);
+    document.getElementById('playTab').addEventListener('click', () => showPlay(group));
+    document.getElementById('uploadTab').addEventListener('click', () => showUpload(group));
+    document.getElementById('compareTab').addEventListener('click', () => showCompare(group));
+    document.getElementById('membersTab').addEventListener('click', () => showMembers(group, isAdmin));
+
+    showPlay(group);
+  }
+
+  /* ---------- daily block logic ---------- */
+  async function fetchUnlockedForGroup(group){
+    const { data: dayRows, error: dayErr } = await sb.rpc('fg_group_day_number', { gid: group.id });
+    if(dayErr) throw dayErr;
+    const targetBlocks = typeof dayRows === 'number' ? dayRows : (Array.isArray(dayRows) ? dayRows[0] : 1);
+
+    for(let b = 1; b <= targetBlocks; b++){
+      await sb.rpc('fg_ensure_block', { p_group_id: group.id, p_block_number: b });
+    }
+
+    const { data: blocks } = await sb.from('fg_daily_blocks').select('*').eq('group_id', group.id).order('block_number').order('slot');
+    const photoIds = (blocks || []).map(b => b.photo_id);
+    let photosById = {};
+    if(photoIds.length){
+      const { data: photos } = await sb.from('fg_photos').select('*').in('id', photoIds);
+      (photos || []).forEach(p => photosById[p.id] = p);
+    }
+    const grouped = {};
+    (blocks || []).forEach(b => {
+      grouped[b.block_number] = grouped[b.block_number] || [];
+      if(photosById[b.photo_id]) grouped[b.block_number].push(photosById[b.photo_id]);
+    });
+    const blockList = Object.keys(grouped).sort((a,b)=>a-b).map(k => ({ block_number: Number(k), photos: grouped[k] }));
+    const unlockedPhotos = blockList.flatMap(b => b.photos);
+    return { unlockedPhotos, blocks: blockList, unlockedBlocks: targetBlocks };
+  }
+
+  async function signedUrlFor(path){
+    const { data, error } = await sb.storage.from(BUCKET).createSignedUrl(path, 3600);
+    if(error) return null;
+    return data.signedUrl;
+  }
+
+  /* ---------- play ---------- */
+  async function showPlay(group){
+    const area = document.getElementById('groupArea');
+    area.innerHTML = `<div class="help" style="text-align:center;margin-top:60px;">Cargando banco de fotos…</div>`;
+
+    let data;
+    try{ data = await fetchUnlockedForGroup(group); }
+    catch(e){ area.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error: ${e.message}</div>`; return; }
+
+    if(data.unlockedPhotos.length === 0){
+      area.innerHTML = `<div class="locked">Todavía no hay 5 fotos cargadas en este grupo.<br>Andá a "cargar fotos" y sumá algunas para arrancar.</div>`;
+      return;
+    }
+
+    const { data: myAnswers, error } = await sb.from('fg_answers').select('*').eq('group_id', group.id).eq('user_id', session.user.id);
+    if(error){ area.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error: ${error.message}</div>`; return; }
+
+    const answeredIds = new Set(myAnswers.map(a => a.photo_id));
+    const pending = data.unlockedPhotos.filter(p => !answeredIds.has(p.id));
+
+    if(pending.length === 0){ renderCaughtUp(area, group, myAnswers, data.unlockedBlocks); return; }
+    loadPhoto(area, group, pending[0], pending.length, myAnswers);
+  }
+
+  async function loadPhoto(area, group, photo, remainingCount, myAnswers){
+    const totalScore = myAnswers.reduce((a,b)=>a+b.score,0);
+    area.innerHTML = `<div class="progress-line"><span>te quedan <span class="num">${remainingCount}</span> foto${remainingCount===1?'':'s'}</span><span>puntaje acumulado: <span class="num">${totalScore}</span></span></div><div class="help" style="text-align:center;margin-top:30px;">Cargando fotografía…</div>`;
+
+    const url = await signedUrlFor(photo.storage_path);
+    if(!url){ area.innerHTML += `<div class="err" style="text-align:center;">No se pudo cargar la imagen.</div>`; return; }
+
+    let guessLatLng=null, guessed=false;
+    area.innerHTML = `
+      <div class="progress-line"><span>te quedan <span class="num">${remainingCount}</span> foto${remainingCount===1?'':'s'}</span><span>puntaje acumulado: <span class="num">${totalScore}</span></span></div>
+      <div class="grid">
+        <div class="pane photo-pane"><div class="pane-head"><span>la fotografía</span></div><img src="${url}"></div>
+        <div class="pane"><div class="pane-head"><span>marcá tu cálculo</span><span>vista satelital</span></div><div class="leaflet-map" id="map"></div></div>
+      </div>
+      <div class="action-row">
+        <div class="readout" id="coordReadout">Todavía no marcaste ningún punto.</div>
+        <button class="btn" style="width:auto;" id="confirmBtn" disabled>Confirmar ubicación</button>
+      </div>
+      <div id="resultArea"></div>
+    `;
+
+    const map = L.map('map', { worldCopyJump:true }).setView([20,0], 2);
+    satelliteLayer().addTo(map);
+    let guessMarker;
+    map.on('click', e => {
+      if(guessed) return;
+      guessLatLng = e.latlng;
+      if(guessMarker) map.removeLayer(guessMarker);
+      guessMarker = L.circleMarker(e.latlng, { radius:7, color:'#ff6a3d', weight:2, fillColor:'#ff6a3d', fillOpacity:0.9 }).addTo(map);
+      document.getElementById('coordReadout').innerHTML = `marcaste: <b>${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}</b>`;
+      document.getElementById('confirmBtn').disabled = false;
+    });
+
+    document.getElementById('confirmBtn').addEventListener('click', async () => {
+      if(!guessLatLng || guessed) return;
+      guessed = true;
+      const btn = document.getElementById('confirmBtn');
+      btn.disabled = true; btn.textContent = 'Guardando…';
+
+      const distM = haversineMeters(guessLatLng.lat, guessLatLng.lng, photo.lat, photo.lng);
+      const score = scoreFromMeters(distM);
+
+      const { error } = await sb.from('fg_answers').insert({
+        group_id: group.id, user_id: session.user.id, photo_id: photo.id,
+        guess_lat: guessLatLng.lat, guess_lng: guessLatLng.lng, distance_m: distM, score
+      });
+      if(error){
+        guessed=false; btn.disabled=false; btn.textContent='Confirmar ubicación';
+        document.getElementById('resultArea').innerHTML = `<div class="err" style="text-align:center;">Error: ${error.message}</div>`;
+        return;
+      }
+
+      L.circleMarker([photo.lat, photo.lng], { radius:7, color:'#7fd6c2', weight:2, fillColor:'#7fd6c2', fillOpacity:0.9 }).addTo(map).bindPopup('Ubicación real').openPopup();
+      L.polyline([guessLatLng, [photo.lat, photo.lng]], { color:'#e9e9de', weight:1.5, dashArray:'5,7', opacity:0.6 }).addTo(map);
+      map.fitBounds(L.latLngBounds([guessLatLng, [photo.lat, photo.lng]]), { padding:[60,60] });
+
+      myAnswers.push({ score, distance_m: distM });
+      const nextRemaining = remainingCount - 1;
+      document.getElementById('resultArea').innerHTML = `
+        <div class="result">
+          <div class="distance">estuviste a <b>${formatMeters(distM)}</b> del lugar real</div>
+          <div class="score display">${score}<sup>/100</sup></div>
+          <div class="verdict">${verdictFor(score)}</div>
+          <hr>
+          <div class="legend"><span class="dot" style="background:#ff6a3d;"></span>tu marca &nbsp;&nbsp;<span class="dot" style="background:#7fd6c2;"></span>ubicación real</div>
+          <button class="btn" id="nextBtn" style="margin-top:22px;">${nextRemaining>0?'Siguiente foto':'Ver resumen'}</button>
+        </div>`;
+      document.getElementById('nextBtn').addEventListener('click', () => showPlay(group));
+    });
+  }
+
+  async function renderCaughtUp(area, group, myAnswers, unlockedBlocks){
+    const { data: members } = await sb.from('fg_group_members').select('user_id').eq('group_id', group.id);
+    const { data: profiles } = await sb.from('fg_profiles').select('user_id, display_name').in('user_id', (members||[]).map(m=>m.user_id));
+    const nameOf = {}; (profiles||[]).forEach(p => nameOf[p.user_id] = p.display_name);
+
+    const { data: allAnswers } = await sb.from('fg_answers').select('user_id, score').eq('group_id', group.id);
+    const totals = {}; (members||[]).forEach(m => totals[m.user_id] = 0);
+    (allAnswers||[]).forEach(a => { totals[a.user_id] = (totals[a.user_id]||0) + a.score; });
+    const ranking = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
+
+    const myTotal = myAnswers.reduce((a,b)=>a+b.score,0);
+    area.innerHTML = `
+      <div class="result" style="margin-top:30px;">
+        <div class="eyebrow" style="text-align:left;">al día</div>
+        <div class="score display">${myTotal}</div>
+        <div class="distance">Ya jugaste todas las fotos disponibles (día ${unlockedBlocks} liberado). Volvé mañana para más.</div>
+      </div>
+      <div class="leaderboard">
+        <h3 class="display">Tabla de posiciones</h3>
+        <table><thead><tr><th class="rank">#</th><th>jugador</th><th>puntaje total</th></tr></thead>
+        <tbody>${ranking.map(([uid,total],i)=>`<tr class="${uid===session.user.id?'me':''}"><td class="rank">${i+1}</td><td>${nameOf[uid]||'—'}</td><td>${total}</td></tr>`).join('')}</tbody></table>
+      </div>
+      <div style="text-align:center;margin-top:18px;"><button class="btn btn-ghost" id="goCompareBtn" style="width:auto;">Ver comparación foto por foto</button></div>
+    `;
+    document.getElementById('goCompareBtn').addEventListener('click', () => showCompare(group));
+  }
+
+  /* ---------- upload ---------- */
+  function showUpload(group){
+    const area = document.getElementById('groupArea');
+    area.innerHTML = `
+      <div class="narrow" style="padding:0;">
+        <p class="help">Subí fotos con GPS activado. Se van a sortear entre las fechas del grupo, mezcladas con el resto del banco — no importa el orden en que las cargues.</p>
+        <div class="dropzone" id="dropzone">
+          <div>Arrastrá tus fotos acá, o hacé clic para elegirlas</div>
+          <div class="help">Las que no tengan GPS en el EXIF se rechazan.</div>
+          <input type="file" id="fileInput" accept="image/*" multiple>
+        </div>
+        <div class="queue" id="queue"></div>
+      </div>
+    `;
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const queue = document.getElementById('queue');
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    ['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+    ['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+    dropzone.addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+    fileInput.addEventListener('change', e => { handleFiles(e.target.files); fileInput.value=''; });
+
+    function handleFiles(list){ Array.from(list).forEach(processFile); }
+
+    function processFile(file){
+      if(!file.type.startsWith('image/')) return;
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.innerHTML = `<img src="${URL.createObjectURL(file)}"><div class="name">${file.name}</div><div class="status pending">leyendo GPS…</div>`;
+      queue.prepend(row);
+      const statusEl = row.querySelector('.status');
+
+      EXIF.getData(file, function(){
+        const lat = EXIF.getTag(this,'GPSLatitude'), latRef = EXIF.getTag(this,'GPSLatitudeRef');
+        const lng = EXIF.getTag(this,'GPSLongitude'), lngRef = EXIF.getTag(this,'GPSLongitudeRef');
+        if(!lat || !lng){ statusEl.textContent='sin GPS — rechazada'; statusEl.className='status err'; return; }
+        statusEl.textContent = 'subiendo…';
+        uploadFile(file, toDecimal(lat,latRef), toDecimal(lng,lngRef), statusEl);
+      });
+    }
+
+    async function uploadFile(file, lat, lng, statusEl){
+      try{
+        const ext = (file.name.split('.').pop()||'jpg').toLowerCase();
+        const path = `${group.id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+        const { error: upErr } = await sb.storage.from(BUCKET).upload(path, file, { cacheControl:'31536000', upsert:false, contentType:file.type });
+        if(upErr) throw upErr;
+        const { error: dbErr } = await sb.from('fg_photos').insert({ group_id: group.id, storage_path: path, lat, lng, uploaded_by: session.user.id });
+        if(dbErr) throw dbErr;
+        statusEl.textContent = 'cargada ✓'; statusEl.className = 'status ok';
+      }catch(e){
+        statusEl.textContent = 'error: ' + (e.message||'no se pudo subir'); statusEl.className = 'status err';
+      }
+    }
+  }
+
+  /* ---------- compare ---------- */
+  async function showCompare(group){
+    const area = document.getElementById('groupArea');
+    area.innerHTML = `<div class="help" style="text-align:center;margin-top:60px;">Cargando comparación…</div>`;
+
+    let data;
+    try{ data = await fetchUnlockedForGroup(group); }
+    catch(e){ area.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error: ${e.message}</div>`; return; }
+
+    if(data.unlockedPhotos.length === 0){ area.innerHTML = `<div class="locked">Todavía no hay fotos.</div>`; return; }
+
+    const { data: myAnswers } = await sb.from('fg_answers').select('photo_id').eq('group_id', group.id).eq('user_id', session.user.id);
+    const answeredIds = new Set((myAnswers||[]).map(a=>a.photo_id));
+    const caughtUp = data.unlockedPhotos.every(p => answeredIds.has(p.id));
+    if(!caughtUp){
+      area.innerHTML = `<div class="locked">Todavía te faltan fotos disponibles por jugar.<br>Terminalas para ver cómo respondieron los demás.</div>`;
+      return;
+    }
+
+    const { data: allAnswers, error } = await sb.from('fg_answers').select('*').eq('group_id', group.id);
+    if(error){ area.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error: ${error.message}</div>`; return; }
+
+    const { data: members } = await sb.from('fg_group_members').select('user_id').eq('group_id', group.id);
+    const { data: profiles } = await sb.from('fg_profiles').select('user_id, display_name').in('user_id', (members||[]).map(m=>m.user_id));
+    const nameOf = {}; (profiles||[]).forEach(p => nameOf[p.user_id]=p.display_name);
+
+    const totals = {}; (members||[]).forEach(m => totals[m.user_id]=0);
+    allAnswers.forEach(a => { totals[a.user_id] = (totals[a.user_id]||0) + a.score; });
+    const ranking = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
+
+    const answersByPhoto = {};
+    allAnswers.forEach(a => { (answersByPhoto[a.photo_id] = answersByPhoto[a.photo_id]||[]).push(a); });
+
+    area.innerHTML = `
+      <div class="leaderboard" style="margin-bottom:26px;">
+        <h3 class="display">Tabla de posiciones</h3>
+        <table><thead><tr><th class="rank">#</th><th>jugador</th><th>puntaje total</th></tr></thead>
+        <tbody>${ranking.map(([uid,total],i)=>`<tr class="${uid===session.user.id?'me':''}"><td class="rank">${i+1}</td><td>${nameOf[uid]||'—'}</td><td>${total}</td></tr>`).join('')}</tbody></table>
+      </div>
+      <div id="compareList"></div>
+    `;
+    const list = document.getElementById('compareList');
+    let idx = 0;
+
+    for(const block of data.blocks){
+      const label = document.createElement('div');
+      label.className = 'block-label';
+      label.textContent = `día ${block.block_number}`;
+      list.appendChild(label);
+
+      for(const photo of block.photos){
+        const myIdx = idx++;
+        const answers = answersByPhoto[photo.id] || [];
+        const sorted = [...answers].sort((a,b)=>b.score-a.score);
+        const url = await signedUrlFor(photo.storage_path);
+
+        const wrap = document.createElement('div');
+        wrap.className = 'compare-photo';
+        wrap.innerHTML = `
+          <div class="pane-head"><span>foto</span></div>
+          <div class="compare-body">
+            <div class="compare-thumb">${url ? `<img src="${url}">` : ''}</div>
+            <div class="compare-map" id="cmap-${myIdx}"></div>
+            <div class="compare-table"><table><thead><tr><th>jugador</th><th>distancia</th><th>puntaje</th></tr></thead>
+              <tbody>${sorted.map(a=>`<tr><td><span class="swatch" style="background:${colorFor(nameOf[a.user_id]||'?')}"></span>${nameOf[a.user_id]||'—'}</td><td>${formatMeters(a.distance_m)}</td><td>${a.score}</td></tr>`).join('')}
+              ${sorted.length===0?'<tr><td colspan="3">Sin respuestas todavía.</td></tr>':''}</tbody></table>
+            </div>
+          </div>`;
+        list.appendChild(wrap);
+
+        const map = L.map(`cmap-${myIdx}`, { worldCopyJump:true, zoomControl:false }).setView([20,0], 2);
+        satelliteLayer().addTo(map);
+        const bounds = [[photo.lat, photo.lng]];
+        L.circleMarker([photo.lat, photo.lng], { radius:8, color:'#e9e9de', weight:2, fillColor:'#e9e9de', fillOpacity:0.9 }).addTo(map).bindPopup('Ubicación real');
+        answers.forEach(a => {
+          const c = colorFor(nameOf[a.user_id]||'?');
+          L.circleMarker([a.guess_lat, a.guess_lng], { radius:6, color:c, weight:2, fillColor:c, fillOpacity:0.85 }).addTo(map).bindPopup(`${nameOf[a.user_id]||'—'} — ${formatMeters(a.distance_m)} — ${a.score} pts`);
+          bounds.push([a.guess_lat, a.guess_lng]);
+        });
+        map.fitBounds(L.latLngBounds(bounds), { padding:[40,40] });
+      }
+    }
+  }
+
+  /* ---------- members ---------- */
+  async function showMembers(group, isAdmin){
+    const area = document.getElementById('groupArea');
+    area.innerHTML = `<div class="help" style="text-align:center;margin-top:30px;">Cargando…</div>`;
+
+    const { data: members } = await sb.from('fg_group_members').select('*').eq('group_id', group.id);
+    const { data: profiles } = await sb.from('fg_profiles').select('user_id, display_name').in('user_id', (members||[]).map(m=>m.user_id));
+    const nameOf = {}; (profiles||[]).forEach(p => nameOf[p.user_id]=p.display_name);
+
+    const inviteLink = currentUrlBase() + '?join=' + group.invite_code;
+
+    area.innerHTML = `
+      <div class="narrow" style="padding:0;">
+        <div class="card" style="max-width:none;">
+          <div class="eyebrow">invitar</div>
+          <p class="help">Compartí este link — quien lo abra y entre con su mail se une solo al grupo.</p>
+          <input class="field" readonly value="${inviteLink}" onclick="this.select()">
+        </div>
+        <div class="card" style="max-width:none;margin-top:18px;">
+          <div class="eyebrow">miembros</div>
+          <div id="memberList" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    `;
+    const listEl = document.getElementById('memberList');
+    (members||[]).forEach(m => {
+      const row = document.createElement('div');
+      row.className = 'memberrow';
+      row.innerHTML = `<span>${nameOf[m.user_id]||'—'} ${m.is_admin?'· admin':''}</span>`;
+      if(isAdmin && !m.is_admin){
+        const btn = document.createElement('button');
+        btn.className = 'btn-danger'; btn.style.width='auto'; btn.style.padding='4px 10px'; btn.style.fontSize='12px';
+        btn.textContent = 'sacar del grupo';
+        btn.addEventListener('click', async () => {
+          if(!confirm(`¿Sacar a ${nameOf[m.user_id]} del grupo?`)) return;
+          const { error } = await sb.from('fg_group_members').delete().eq('group_id', group.id).eq('user_id', m.user_id);
+          if(error){ alert('Error: ' + error.message); return; }
+          showMembers(group, isAdmin);
+        });
+        row.appendChild(btn);
+      }
+      listEl.appendChild(row);
+    });
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
