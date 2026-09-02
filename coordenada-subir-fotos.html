@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cargar fotos — Coordenada</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --slate:#10161c; --slate-2:#171f27; --line:rgba(233,233,222,0.10);
+    --paper:#e9e9de; --paper-dim:rgba(233,233,222,0.55); --signal:#ff6a3d; --teal:#7fd6c2;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--slate); color: var(--paper); min-height:100vh;
+    font-family: -apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 42px 42px;
+  }
+  .display{ font-family: Georgia,'Times New Roman',serif; }
+  .wrap{ max-width: 640px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1{ font-family: Georgia, serif; font-weight:400; font-size:30px; margin:0 0 6px; }
+  h1 b{ color: var(--signal); font-weight:400; }
+  p.sub{ color: var(--paper-dim); font-size:14px; line-height:1.6; margin-bottom:28px; }
+
+  .dropzone{
+    border: 1px dashed rgba(233,233,222,0.3); padding: 40px 24px; text-align:center;
+    background: rgba(233,233,222,0.02); transition: border-color .2s, background .2s; cursor:pointer;
+  }
+  .dropzone.drag{ border-color: var(--signal); background: rgba(255,106,61,0.06); }
+  .dropzone .hint{ color: var(--paper-dim); font-size:13px; margin-top:10px; }
+  input[type=file]{ display:none; }
+  .btn{
+    display:inline-block; background: var(--signal); color:#17110c; border:none;
+    padding: 11px 22px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; margin-top:14px;
+  }
+  .btn:hover{ background:#ff8259; }
+
+  .queue{ margin-top: 26px; display:flex; flex-direction:column; gap:10px; }
+  .item{
+    display:flex; align-items:center; gap:12px; background: var(--slate-2); border:1px solid var(--line);
+    padding: 10px 12px; font-size:13px;
+  }
+  .item img{ width:52px; height:52px; object-fit:cover; flex-shrink:0; background:#000; }
+  .item .name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .item .status{ font-size:12px; white-space:nowrap; }
+  .status.pending{ color: var(--paper-dim); }
+  .status.ok{ color: var(--teal); }
+  .status.err{ color:#ff8f78; }
+
+  .counter{ margin-top:22px; font-size:13px; color: var(--paper-dim); text-align:center; }
+  .counter b{ color: var(--paper); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="display">coorden<b>a</b>da — cargar fotos</h1>
+  <p class="sub">
+    Subí fotos con ubicación GPS activada en el momento de sacarlas. Se van a agregar al banco del juego
+    en el orden en que las cargues acá. Las que no tengan datos de GPS en el EXIF se rechazan automáticamente.
+  </p>
+
+  <div class="dropzone" id="dropzone">
+    <div>Arrastrá tus fotos acá, o hacé clic para elegirlas</div>
+    <div class="hint">Podés seleccionar varias a la vez. JPG/HEIC con GPS en el EXIF.</div>
+    <input type="file" id="fileInput" accept="image/*" multiple>
+    <div><button class="btn" id="chooseBtn">Elegir fotos</button></div>
+  </div>
+
+  <div class="queue" id="queue"></div>
+  <div class="counter" id="counter"></div>
+</div>
+
+<script>
+(function(){
+  const SUPABASE_URL = "https://usxonhttmrzgaznvgksf.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzeG9uaHR0bXJ6Z2F6bnZna3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyODU1OTksImV4cCI6MjEwMzg2MTU5OX0.utIi2q19x5TL-kF4ymrC-0cbJ2t0h0MXpeXDSA9f0wI";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const BUCKET = "photos";
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const chooseBtn = document.getElementById('chooseBtn');
+  const queue = document.getElementById('queue');
+  const counter = document.getElementById('counter');
+
+  let okCount = 0, errCount = 0, totalCount = 0;
+
+  chooseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+  dropzone.addEventListener('click', () => fileInput.click());
+  ['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+  dropzone.addEventListener('drop', e => { handleFiles(e.dataTransfer.files); });
+  fileInput.addEventListener('change', e => { handleFiles(e.target.files); fileInput.value=''; });
+
+  function toDecimal(gpsData, ref){
+    if(!gpsData) return null;
+    let val = gpsData[0] + gpsData[1]/60 + gpsData[2]/3600;
+    if(ref === 'S' || ref === 'W') val = -val;
+    return val;
+  }
+
+  function updateCounter(){
+    counter.innerHTML = `<b>${okCount}</b> cargadas · <b>${errCount}</b> rechazadas · <b>${totalCount}</b> procesadas`;
+  }
+
+  function handleFiles(fileList){
+    Array.from(fileList).forEach(processFile);
+  }
+
+  function processFile(file){
+    if(!file.type.startsWith('image/')) return;
+    totalCount++;
+
+    const row = document.createElement('div');
+    row.className = 'item';
+    const thumbUrl = URL.createObjectURL(file);
+    row.innerHTML = `<img src="${thumbUrl}"><div class="name">${file.name}</div><div class="status pending">leyendo GPS…</div>`;
+    queue.prepend(row);
+    const statusEl = row.querySelector('.status');
+    updateCounter();
+
+    EXIF.getData(file, function(){
+      const lat = EXIF.getTag(this, 'GPSLatitude');
+      const latRef = EXIF.getTag(this, 'GPSLatitudeRef');
+      const lng = EXIF.getTag(this, 'GPSLongitude');
+      const lngRef = EXIF.getTag(this, 'GPSLongitudeRef');
+
+      if(!lat || !lng){
+        statusEl.textContent = 'sin GPS — rechazada';
+        statusEl.className = 'status err';
+        errCount++; updateCounter();
+        return;
+      }
+
+      const decLat = toDecimal(lat, latRef);
+      const decLng = toDecimal(lng, lngRef);
+      statusEl.textContent = 'subiendo…';
+      uploadFile(file, decLat, decLng, statusEl);
+    });
+  }
+
+  async function uploadFile(file, lat, lng, statusEl){
+    try{
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+
+      const { error: upErr } = await sb.storage.from(BUCKET).upload(path, file, {
+        cacheControl: '31536000', upsert: false, contentType: file.type
+      });
+      if(upErr) throw upErr;
+
+      const { error: dbErr } = await sb.from('photos').insert({
+        storage_path: path, lat, lng
+      });
+      if(dbErr) throw dbErr;
+
+      statusEl.textContent = 'cargada ✓';
+      statusEl.className = 'status ok';
+      okCount++; updateCounter();
+    }catch(e){
+      statusEl.textContent = 'error: ' + (e.message || 'no se pudo subir');
+      statusEl.className = 'status err';
+      errCount++; updateCounter();
+    }
+  }
+})();
+</script>
+</body>
+</html>

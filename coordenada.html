@@ -6,29 +6,20 @@
 <title>Coordenada</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root{
-    --slate: #10161c;
-    --slate-2: #171f27;
-    --line: rgba(233,233,222,0.10);
-    --paper: #e9e9de;
-    --paper-dim: rgba(233,233,222,0.55);
-    --signal: #ff6a3d;
-    --teal: #7fd6c2;
-    --grid: #3a5a55;
+    --slate: #10161c; --slate-2: #171f27; --line: rgba(233,233,222,0.10);
+    --paper: #e9e9de; --paper-dim: rgba(233,233,222,0.55);
+    --signal: #ff6a3d; --teal: #7fd6c2; --grid: #3a5a55;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
   body{
-    background: var(--slate);
-    color: var(--paper);
+    background: var(--slate); color: var(--paper);
     font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     min-height:100vh;
-    background-image:
-      linear-gradient(var(--line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
     background-size: 42px 42px;
   }
   .display{ font-family: Georgia, 'Times New Roman', serif; }
@@ -54,7 +45,6 @@
   .userbit b{ color: var(--paper); font-weight:600; }
   .textbtn{ background:none;border:none;color:var(--paper-dim); font-family:inherit;font-size:12px;cursor:pointer;text-decoration:underline;padding:0; }
   .textbtn:hover{ color:var(--paper); }
-  .textbtn.active{ color: var(--signal); }
 
   .wrap{ max-width: 1180px; margin: 0 auto; padding: 22px; }
   .progress-line{ display:flex; justify-content:space-between; align-items:baseline; font-size: 13px; color: var(--paper-dim); margin-bottom: 14px; }
@@ -82,10 +72,20 @@
   .result .legend{ font-size: 12px; color: var(--paper-dim); }
   .dot{ display:inline-block; width:9px;height:9px;border-radius:50%; margin-right:6px; vertical-align:middle; }
 
+  .leaderboard{ max-width: 480px; margin: 16px auto 0; background: var(--slate-2); border: 1px solid var(--line); padding: 22px 28px; }
+  .leaderboard h3{ margin:0 0 14px; font-family: Georgia, serif; font-weight:400; font-size:17px; }
+  .leaderboard table{ width:100%; border-collapse:collapse; font-size:13px; }
+  .leaderboard th{ text-align:left; color: var(--paper-dim); font-weight:500; font-size:11px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  .leaderboard td{ padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .leaderboard tr:last-child td{ border-bottom:none; }
+  .leaderboard .rank{ color: var(--paper-dim); width: 24px; }
+  .leaderboard .me{ color: var(--signal); font-weight:600; }
+
   .compare-photo{ background: var(--slate-2); border: 1px solid var(--line); margin-bottom: 22px; }
-  .compare-photo .pane-head{ }
-  .compare-body{ display:grid; grid-template-columns: 1fr 1fr; gap:0; }
-  @media (max-width: 860px){ .compare-body{ grid-template-columns: 1fr; } }
+  .compare-body{ display:grid; grid-template-columns: 0.7fr 1fr 1fr; gap:0; }
+  @media (max-width: 960px){ .compare-body{ grid-template-columns: 1fr; } }
+  .compare-thumb{ display:flex; align-items:center; justify-content:center; background:#000; }
+  .compare-thumb img{ width:100%; height:100%; max-height:340px; object-fit:cover; display:block; }
   .compare-map{ height: 340px; width:100%; }
   .compare-table{ padding: 14px 18px; font-size: 13px; }
   .compare-table table{ width:100%; border-collapse:collapse; }
@@ -94,6 +94,8 @@
   .compare-table tr:last-child td{ border-bottom:none; }
   .swatch{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; }
   .locked{ text-align:center; color: var(--paper-dim); font-size:14px; margin-top:60px; line-height:1.8; }
+  .block-label{ font-size:11px; color: var(--grid); text-transform:uppercase; letter-spacing:0.06em; margin: 26px 0 10px; }
+  .block-label:first-child{ margin-top:0; }
 </style>
 </head>
 <body>
@@ -102,25 +104,31 @@
 
 <script>
 (function(){
-  /* ============ CONFIG (hardcoded) ============ */
-  const GITHUB_OWNER = "tebimosca";
-  const GITHUB_REPO = "bomboncitos";
-  const GITHUB_BRANCH = "main";
-  const MANIFEST_PATH = "manifest.json";
-
+  /* ============ CONFIG ============ */
   const SUPABASE_URL = "https://usxonhttmrzgaznvgksf.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzeG9uaHR0bXJ6Z2F6bnZna3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyODU1OTksImV4cCI6MjEwMzg2MTU5OX0.utIi2q19x5TL-kF4ymrC-0cbJ2t0h0MXpeXDSA9f0wI";
+  const BUCKET = "photos";
+  const BLOCK_SIZE = 5;
+  const START_DATE = "2026-09-01"; // día en que se libera el bloque 1, hora Argentina
 
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
   const LS_USER = "coordenada_user";
   const root = document.getElementById('root');
 
   function getUser(){ return localStorage.getItem(LS_USER); }
   function setUser(name){ localStorage.setItem(LS_USER, name); }
-  function rawUrl(path){ return `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/${path}`; }
+  function publicUrl(storagePath){ return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${storagePath}`; }
 
-  /* ============ router ============ */
+  function argentinaDateStr(d){
+    return new Intl.DateTimeFormat('en-CA', { timeZone:'America/Argentina/Buenos_Aires', year:'numeric', month:'2-digit', day:'2-digit' }).format(d);
+  }
+  function daysSinceStart(){
+    const todayStr = argentinaDateStr(new Date());
+    const start = new Date(START_DATE + 'T00:00:00Z');
+    const today = new Date(todayStr + 'T00:00:00Z');
+    return Math.max(1, Math.floor((today - start) / 86400000) + 1);
+  }
+
   function render(){
     const user = getUser();
     if(!user){ renderLogin(); } else { renderGame(user); }
@@ -147,7 +155,7 @@
       btn.disabled = true; btn.textContent = 'Entrando…';
       const { error } = await sb.from('players').upsert({ name: val }, { onConflict: 'name' });
       if(error){
-        errEl.textContent = 'Error de Supabase: ' + error.message + (error.details ? ' — ' + error.details : '') + (error.hint ? ' — ' + error.hint : '');
+        errEl.textContent = 'Error de Supabase: ' + error.message;
         btn.disabled = false; btn.textContent = 'Entrar';
         return;
       }
@@ -160,51 +168,14 @@
   }
 
   /* ============ helpers ============ */
-  let manifestCache = null;
-  async function loadManifest(){
-    if(manifestCache) return manifestCache;
-    const res = await fetch(rawUrl(MANIFEST_PATH));
-    manifestCache = await res.json();
-    return manifestCache;
-  }
-
-  function toDecimal(gpsData, ref){
-    if(!gpsData) return null;
-    let val = gpsData[0] + gpsData[1]/60 + gpsData[2]/3600;
-    if(ref === 'S' || ref === 'W') val = -val;
-    return val;
-  }
-
-  function extractGPS(imgUrl){
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = function(){
-        EXIF.getData(img, function(){
-          const lat = EXIF.getTag(this, 'GPSLatitude');
-          const latRef = EXIF.getTag(this, 'GPSLatitudeRef');
-          const lng = EXIF.getTag(this, 'GPSLongitude');
-          const lngRef = EXIF.getTag(this, 'GPSLongitudeRef');
-          if(!lat || !lng){ reject(new Error('sin GPS')); return; }
-          resolve({ lat: toDecimal(lat, latRef), lng: toDecimal(lng, lngRef) });
-        });
-      };
-      img.onerror = () => reject(new Error('no se pudo cargar la imagen'));
-      img.src = imgUrl;
-    });
-  }
-
   function haversineMeters(lat1, lon1, lat2, lon2){
     const R = 6371000;
     const dLat = (lat2-lat1) * Math.PI/180;
     const dLon = (lon2-lon1) * Math.PI/180;
-    const a = Math.sin(dLat/2)**2 +
-              Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) *
-              Math.sin(dLon/2)**2;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
   }
-
   function scoreFromMeters(m){
     const D0 = 10, DMAX = 100000;
     if(m <= D0) return 100;
@@ -212,7 +183,6 @@
     const s = 100 * Math.log(DMAX / m) / Math.log(DMAX / D0);
     return Math.max(0, Math.min(100, Math.round(s)));
   }
-
   function verdictFor(score){
     if(score >= 95) return 'Prácticamente exacto.';
     if(score >= 75) return 'Muy cerca del lugar real.';
@@ -221,18 +191,15 @@
     if(score > 0) return 'Muy lejos del lugar real.';
     return 'Fuera de rango.';
   }
-
   function formatMeters(m){
     if(m < 1000) return `${Math.round(m)} m`;
     return `${(m/1000).toFixed(m < 10000 ? 1 : 0)} km`;
   }
-
   function satelliteLayer(){
     return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       attribution: 'Tiles &copy; Esri', maxZoom: 19
     });
   }
-
   const PALETTE = ['#ff6a3d','#7fd6c2','#e0c341','#9b8cff','#ff9ecf','#5fb4ff','#ffab5c','#c4f562'];
   function colorFor(name){
     let hash = 0;
@@ -240,7 +207,7 @@
     return PALETTE[Math.abs(hash) % PALETTE.length];
   }
 
-  /* ============ game ============ */
+  /* ============ game shell ============ */
   async function renderGame(user){
     root.innerHTML = `
       <div class="topbar">
@@ -259,65 +226,60 @@
     document.getElementById('changeUserBtn').addEventListener('click', () => { localStorage.removeItem(LS_USER); render(); });
     document.getElementById('playTab').addEventListener('click', () => showPlay(user));
     document.getElementById('compareTab').addEventListener('click', () => showCompare(user));
-
     showPlay(user);
   }
 
+  async function fetchUnlockedPhotos(){
+    const { data: photos, error } = await sb.from('photos').select('*').order('seq', { ascending: true });
+    if(error) throw error;
+    const maxBlockByPhotos = Math.floor(photos.length / BLOCK_SIZE);
+    const unlockedBlocks = Math.min(daysSinceStart(), maxBlockByPhotos);
+    const unlockedPhotos = photos.slice(0, unlockedBlocks * BLOCK_SIZE);
+    return { allPhotos: photos, unlockedPhotos, unlockedBlocks };
+  }
+
+  /* ============ play ============ */
   async function showPlay(user){
     const gameArea = document.getElementById('gameArea');
     gameArea.innerHTML = `<div class="help" style="text-align:center; margin-top:60px;">Cargando banco de fotos…</div>`;
 
-    let manifest;
-    try{ manifest = await loadManifest(); }
-    catch(e){
-      gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">No pude leer el manifest del repositorio.</div>`;
+    let photosData;
+    try{ photosData = await fetchUnlockedPhotos(); }
+    catch(e){ gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error de Supabase: ${e.message}</div>`; return; }
+
+    const { unlockedPhotos, unlockedBlocks } = photosData;
+
+    if(unlockedPhotos.length === 0){
+      gameArea.innerHTML = `<div class="locked">Todavía no hay fotos cargadas en el juego.<br>Pedile a quien administra el banco de fotos que suba algunas.</div>`;
       return;
     }
 
-    const { data: myAnswers, error } = await sb.from('answers').select('*').eq('player_name', user).order('photo_index');
-    if(error){
-      gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">No pude conectar con la base de datos.</div>`;
+    const { data: myAnswers, error } = await sb.from('answers').select('*').eq('player_name', user);
+    if(error){ gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error de Supabase: ${error.message}</div>`; return; }
+
+    const answeredIds = new Set(myAnswers.map(a => a.photo_id));
+    const pending = unlockedPhotos.filter(p => !answeredIds.has(p.id));
+
+    if(pending.length === 0){
+      renderCaughtUp(gameArea, user, myAnswers, unlockedBlocks);
       return;
     }
 
-    const nextIndex = myAnswers.length;
-    if(nextIndex >= manifest.length){
-      renderFinished(gameArea, myAnswers, manifest.length);
-      return;
-    }
-    loadPhoto(gameArea, user, manifest, nextIndex, myAnswers);
+    loadPhoto(gameArea, user, pending[0], pending.length, myAnswers);
   }
 
-  async function loadPhoto(gameArea, user, manifest, index, myAnswers){
-    const path = manifest[index];
-    const imgUrl = rawUrl(path);
+  async function loadPhoto(gameArea, user, photo, remainingCount, myAnswers){
+    const imgUrl = publicUrl(photo.storage_path);
     const totalScore = myAnswers.reduce((a,b)=>a+b.score,0);
 
     gameArea.innerHTML = `
       <div class="progress-line">
-        <span>foto <span class="num">${index + 1}</span> de ${manifest.length}</span>
-        <span>puntaje acumulado: <span class="num">${totalScore}</span></span>
-      </div>
-      <div class="help" style="text-align:center; margin-top:40px;">Cargando fotografía y coordenadas…</div>
-    `;
-
-    let coords;
-    try{ coords = await extractGPS(imgUrl); }
-    catch(e){
-      gameArea.innerHTML += `<div class="err" style="text-align:center;">Esta foto (${path}) no tiene GPS legible en su EXIF. No se puede jugar hasta que se corrija en el repositorio.</div>`;
-      return;
-    }
-
-    let guessLatLng = null, guessed = false;
-
-    gameArea.innerHTML = `
-      <div class="progress-line">
-        <span>foto <span class="num">${index + 1}</span> de ${manifest.length}</span>
+        <span>te quedan <span class="num">${remainingCount}</span> foto${remainingCount===1?'':'s'} disponible${remainingCount===1?'':'s'}</span>
         <span>puntaje acumulado: <span class="num">${totalScore}</span></span>
       </div>
       <div class="grid">
         <div class="pane photo-pane">
-          <div class="pane-head"><span>la fotografía</span><span>${path}</span></div>
+          <div class="pane-head"><span>la fotografía</span></div>
           <img src="${imgUrl}" alt="Foto a ubicar">
         </div>
         <div class="pane">
@@ -335,7 +297,7 @@
     const map = L.map('map', { worldCopyJump:true }).setView([20,0], 2);
     satelliteLayer().addTo(map);
 
-    let guessMarker;
+    let guessLatLng = null, guessed = false, guessMarker;
     map.on('click', function(e){
       if(guessed) return;
       guessLatLng = e.latlng;
@@ -349,40 +311,30 @@
       if(!guessLatLng || guessed) return;
       guessed = true;
       const confirmBtn = document.getElementById('confirmBtn');
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Guardando…';
+      confirmBtn.disabled = true; confirmBtn.textContent = 'Guardando…';
 
-      const distM = haversineMeters(guessLatLng.lat, guessLatLng.lng, coords.lat, coords.lng);
+      const distM = haversineMeters(guessLatLng.lat, guessLatLng.lng, photo.lat, photo.lng);
       const score = scoreFromMeters(distM);
 
       const { error } = await sb.from('answers').insert({
-        player_name: user,
-        photo_path: path,
-        photo_index: index,
-        guess_lat: guessLatLng.lat,
-        guess_lng: guessLatLng.lng,
-        actual_lat: coords.lat,
-        actual_lng: coords.lng,
-        distance_m: distM,
-        score: score
+        player_name: user, photo_id: photo.id,
+        guess_lat: guessLatLng.lat, guess_lng: guessLatLng.lng,
+        distance_m: distM, score: score
       });
 
       if(error){
-        guessed = false;
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Confirmar ubicación';
-        const msg = 'Error de Supabase: ' + error.message + (error.details ? ' — ' + error.details : '') + (error.hint ? ' — ' + error.hint : '');
-        document.getElementById('resultArea').innerHTML = `<div class="err" style="text-align:center;">${msg}</div>`;
+        guessed = false; confirmBtn.disabled = false; confirmBtn.textContent = 'Confirmar ubicación';
+        document.getElementById('resultArea').innerHTML = `<div class="err" style="text-align:center;">Error de Supabase: ${error.message}</div>`;
         return;
       }
 
-      L.circleMarker([coords.lat, coords.lng], { radius: 7, color:'#7fd6c2', weight:2, fillColor:'#7fd6c2', fillOpacity:0.9 })
+      L.circleMarker([photo.lat, photo.lng], { radius: 7, color:'#7fd6c2', weight:2, fillColor:'#7fd6c2', fillOpacity:0.9 })
         .addTo(map).bindPopup('Ubicación real').openPopup();
-      L.polyline([guessLatLng, [coords.lat, coords.lng]], { color:'#e9e9de', weight:1.5, dashArray:'5,7', opacity:0.6 }).addTo(map);
-      map.fitBounds(L.latLngBounds([guessLatLng, [coords.lat, coords.lng]]), { padding:[60,60] });
+      L.polyline([guessLatLng, [photo.lat, photo.lng]], { color:'#e9e9de', weight:1.5, dashArray:'5,7', opacity:0.6 }).addTo(map);
+      map.fitBounds(L.latLngBounds([guessLatLng, [photo.lat, photo.lng]]), { padding:[60,60] });
 
-      myAnswers.push({ player_name:user, photo_path:path, photo_index:index, distance_m:distM, score:score });
-      const isLast = index + 1 >= manifest.length;
+      myAnswers.push({ player_name:user, photo_id:photo.id, distance_m:distM, score });
+      const nextRemaining = remainingCount - 1;
 
       document.getElementById('resultArea').innerHTML = `
         <div class="result">
@@ -395,32 +347,47 @@
             &nbsp;&nbsp;
             <span class="dot" style="background:#7fd6c2;"></span>ubicación real
           </div>
-          <button class="btn" id="nextBtn" style="margin-top:22px;">${isLast ? 'Ver resumen final' : 'Siguiente foto'}</button>
+          <button class="btn" id="nextBtn" style="margin-top:22px;">${nextRemaining > 0 ? 'Siguiente foto' : 'Ver resumen'}</button>
         </div>
       `;
-      document.getElementById('nextBtn').addEventListener('click', () => {
-        if(isLast){ renderFinished(gameArea, myAnswers, manifest.length); }
-        else { loadPhoto(gameArea, user, manifest, index + 1, myAnswers); }
-      });
+      document.getElementById('nextBtn').addEventListener('click', () => showPlay(user));
     });
   }
 
-  function renderFinished(gameArea, myAnswers, total){
-    const totalScore = myAnswers.reduce((a,b)=>a+b.score,0);
-    const avg = total ? Math.round(totalScore/total) : 0;
+  async function renderCaughtUp(gameArea, user, myAnswers, unlockedBlocks){
+    const { data: allPlayers } = await sb.from('players').select('name');
+    const { data: allAnswers } = await sb.from('answers').select('player_name, score');
+
+    const totals = {};
+    (allPlayers || []).forEach(p => totals[p.name] = 0);
+    (allAnswers || []).forEach(a => { totals[a.player_name] = (totals[a.player_name] || 0) + a.score; });
+    const ranking = Object.entries(totals).sort((a,b) => b[1]-a[1]);
+
+    const myTotal = myAnswers.reduce((a,b)=>a+b.score,0);
+
     gameArea.innerHTML = `
-      <div class="result" style="margin-top:60px;">
-        <div class="eyebrow" style="text-align:left;">recorrido completo</div>
-        <div class="score display">${totalScore}</div>
-        <div class="distance">puntaje total sobre ${total * 100} posibles — promedio de <b>${avg}</b> pts por foto</div>
-        <hr>
-        <div class="legend" style="text-align:left; line-height:2;">
-          ${myAnswers.map((h,i) => `${i+1}. ${h.photo_path} — ${formatMeters(h.distance_m)} — ${h.score} pts`).join('<br>')}
-        </div>
-        <button class="btn btn-ghost" id="goCompareBtn" style="margin-top:22px;">Comparar con otros jugadores</button>
+      <div class="result" style="margin-top:40px;">
+        <div class="eyebrow" style="text-align:left;">al día</div>
+        <div class="score display">${myTotal}</div>
+        <div class="distance">Ya jugaste todas las fotos disponibles (bloque ${unlockedBlocks} liberado). Volvé mañana para más.</div>
+      </div>
+      <div class="leaderboard">
+        <h3 class="display">Tabla de posiciones</h3>
+        <table>
+          <thead><tr><th class="rank">#</th><th>jugador</th><th>puntaje total</th></tr></thead>
+          <tbody>
+            ${ranking.map(([name, total], i) => `
+              <tr class="${name===user ? 'me' : ''}">
+                <td class="rank">${i+1}</td><td>${name}</td><td>${total}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="text-align:center; margin-top:18px;">
+        <button class="btn btn-ghost" id="goCompareBtn" style="width:auto;">Ver comparación foto por foto</button>
       </div>
     `;
-    document.getElementById('goCompareBtn').addEventListener('click', () => showCompare(getUser()));
+    document.getElementById('goCompareBtn').addEventListener('click', () => showCompare(user));
   }
 
   /* ============ compare view ============ */
@@ -428,43 +395,75 @@
     const gameArea = document.getElementById('gameArea');
     gameArea.innerHTML = `<div class="help" style="text-align:center; margin-top:60px;">Cargando comparación…</div>`;
 
-    let manifest;
-    try{ manifest = await loadManifest(); }
-    catch(e){
-      gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">No pude leer el manifest del repositorio.</div>`;
+    let photosData;
+    try{ photosData = await fetchUnlockedPhotos(); }
+    catch(e){ gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error de Supabase: ${e.message}</div>`; return; }
+
+    const { unlockedPhotos } = photosData;
+    if(unlockedPhotos.length === 0){
+      gameArea.innerHTML = `<div class="locked">Todavía no hay fotos cargadas.</div>`;
       return;
     }
 
-    const { data: myAnswers } = await sb.from('answers').select('*').eq('player_name', user);
-    if(!myAnswers || myAnswers.length < manifest.length){
-      gameArea.innerHTML = `<div class="locked">Todavía no completaste todas las fotos.<br>Terminá tu recorrido para poder ver cómo respondieron los demás.</div>`;
+    const { data: myAnswers } = await sb.from('answers').select('photo_id').eq('player_name', user);
+    const answeredIds = new Set((myAnswers || []).map(a => a.photo_id));
+    const caughtUp = unlockedPhotos.every(p => answeredIds.has(p.id));
+
+    if(!caughtUp){
+      gameArea.innerHTML = `<div class="locked">Todavía te faltan fotos disponibles por jugar.<br>Terminalas para poder ver cómo respondieron los demás.</div>`;
       return;
     }
 
-    const { data: allAnswers, error } = await sb.from('answers').select('*').order('photo_index');
-    if(error){
-      gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">No pude cargar las respuestas de todos.</div>`;
-      return;
-    }
+    const { data: allAnswers, error } = await sb.from('answers').select('*');
+    if(error){ gameArea.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error de Supabase: ${error.message}</div>`; return; }
 
-    const byPhoto = {};
-    manifest.forEach((path, i) => byPhoto[i] = { path, answers: [] });
-    allAnswers.forEach(a => { if(byPhoto[a.photo_index]) byPhoto[a.photo_index].answers.push(a); });
+    // leaderboard
+    const { data: allPlayers } = await sb.from('players').select('name');
+    const totals = {};
+    (allPlayers || []).forEach(p => totals[p.name] = 0);
+    allAnswers.forEach(a => { totals[a.player_name] = (totals[a.player_name] || 0) + a.score; });
+    const ranking = Object.entries(totals).sort((a,b) => b[1]-a[1]);
+
+    const answersByPhoto = {};
+    allAnswers.forEach(a => { (answersByPhoto[a.photo_id] = answersByPhoto[a.photo_id] || []).push(a); });
 
     gameArea.innerHTML = `
-      <div class="progress-line"><span>comparación de resultados — todas las fotos</span></div>
+      <div class="leaderboard" style="margin-bottom:26px;">
+        <h3 class="display">Tabla de posiciones</h3>
+        <table>
+          <thead><tr><th class="rank">#</th><th>jugador</th><th>puntaje total</th></tr></thead>
+          <tbody>
+            ${ranking.map(([name, total], i) => `
+              <tr class="${name===user ? 'me' : ''}">
+                <td class="rank">${i+1}</td><td>${name}</td><td>${total}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
       <div id="compareList"></div>
     `;
     const list = document.getElementById('compareList');
+    let currentBlock = -1;
 
-    Object.keys(byPhoto).forEach(idx => {
-      const { path, answers } = byPhoto[idx];
+    unlockedPhotos.forEach((photo, idx) => {
+      const block = Math.floor(idx / BLOCK_SIZE) + 1;
+      if(block !== currentBlock){
+        currentBlock = block;
+        const label = document.createElement('div');
+        label.className = 'block-label';
+        label.textContent = `día ${block}`;
+        list.appendChild(label);
+      }
+
+      const answers = answersByPhoto[photo.id] || [];
+      const sorted = [...answers].sort((a,b) => b.score - a.score);
+
       const wrap = document.createElement('div');
       wrap.className = 'compare-photo';
-      const sorted = [...answers].sort((a,b) => b.score - a.score);
       wrap.innerHTML = `
-        <div class="pane-head"><span>foto ${Number(idx)+1}</span><span>${path}</span></div>
+        <div class="pane-head"><span>foto ${idx+1}</span></div>
         <div class="compare-body">
+          <div class="compare-thumb"><img src="${publicUrl(photo.storage_path)}"></div>
           <div class="compare-map" id="cmap-${idx}"></div>
           <div class="compare-table">
             <table>
@@ -481,20 +480,16 @@
 
       const map = L.map(`cmap-${idx}`, { worldCopyJump:true, zoomControl:false }).setView([20,0], 2);
       satelliteLayer().addTo(map);
-      const bounds = [];
-      if(answers.length){
-        const actual = answers[0];
-        const realMarker = L.circleMarker([actual.actual_lat, actual.actual_lng], { radius: 8, color:'#e9e9de', weight:2, fillColor:'#e9e9de', fillOpacity:0.9 })
-          .addTo(map).bindPopup('Ubicación real');
-        bounds.push([actual.actual_lat, actual.actual_lng]);
-      }
+      const bounds = [[photo.lat, photo.lng]];
+      L.circleMarker([photo.lat, photo.lng], { radius: 8, color:'#e9e9de', weight:2, fillColor:'#e9e9de', fillOpacity:0.9 })
+        .addTo(map).bindPopup('Ubicación real');
       answers.forEach(a => {
         const c = colorFor(a.player_name);
         L.circleMarker([a.guess_lat, a.guess_lng], { radius: 6, color:c, weight:2, fillColor:c, fillOpacity:0.85 })
           .addTo(map).bindPopup(`${a.player_name} — ${formatMeters(a.distance_m)} — ${a.score} pts`);
         bounds.push([a.guess_lat, a.guess_lng]);
       });
-      if(bounds.length){ map.fitBounds(L.latLngBounds(bounds), { padding:[40,40] }); }
+      map.fitBounds(L.latLngBounds(bounds), { padding:[40,40] });
     });
   }
 
