@@ -226,7 +226,7 @@
         <div class="card">
           <div class="eyebrow">fotoguessr</div>
           <h1 class="display">Entrá con tu mail</h1>
-          <p class="help" style="margin-bottom:16px;">Te mandamos un código de 6 dígitos para entrar, sin contraseña.</p>
+          <p class="help" style="margin-bottom:16px;">Te mandamos un código de 8 dígitos para entrar, sin contraseña.</p>
           <input class="field" id="emailInput" placeholder="tu@mail.com" autocomplete="email">
           <button class="btn" id="sendBtn">Enviarme el código</button>
           <div id="authMsg"></div>
@@ -574,7 +574,7 @@
         <div class="dropzone" id="dropzone">
           <div>Arrastrá tus fotos acá, o hacé clic para elegirlas</div>
           <div class="help">Las que no tengan GPS en el EXIF se rechazan.</div>
-          <input type="file" id="fileInput" accept="image/*" multiple>
+          <input type="file" id="fileInput" multiple>
         </div>
         <div class="queue" id="queue"></div>
       </div>
@@ -602,9 +602,16 @@
       EXIF.getData(file, function(){
         const lat = EXIF.getTag(this,'GPSLatitude'), latRef = EXIF.getTag(this,'GPSLatitudeRef');
         const lng = EXIF.getTag(this,'GPSLongitude'), lngRef = EXIF.getTag(this,'GPSLongitudeRef');
-        if(!lat || !lng){ statusEl.textContent='sin GPS — rechazada'; statusEl.className='status err'; return; }
+        if(!lat || !lng || !Array.isArray(lat) || lat.length < 3 || !Array.isArray(lng) || lng.length < 3){
+          statusEl.textContent='sin GPS — rechazada'; statusEl.className='status err'; return;
+        }
+        const decLat = toDecimal(lat, latRef);
+        const decLng = toDecimal(lng, lngRef);
+        if(!isFinite(decLat) || !isFinite(decLng) || decLat < -90 || decLat > 90 || decLng < -180 || decLng > 180){
+          statusEl.textContent = 'GPS ilegible — rechazada'; statusEl.className = 'status err'; return;
+        }
         statusEl.textContent = 'subiendo…';
-        uploadFile(file, toDecimal(lat,latRef), toDecimal(lng,lngRef), statusEl);
+        uploadFile(file, decLat, decLng, statusEl);
       });
     }
 
