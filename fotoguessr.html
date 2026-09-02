@@ -146,6 +146,13 @@
     auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true }
   });
 
+  // Evita que se acumulen mapas de Leaflet en memoria al navegar entre pantallas
+  // (cada mapa sin destruir se queda vivo con sus tiles y listeners, y eso puede
+  // hacer que Chrome descarte la pestaña por memoria cuando abrís el selector de archivos).
+  let activeMaps = [];
+  function trackMap(map){ activeMaps.push(map); return map; }
+  function clearMaps(){ activeMaps.forEach(m => { try{ m.remove(); }catch(e){} }); activeMaps = []; }
+
   const root = document.getElementById('root');
   let session = null;
   let myProfile = null;
@@ -313,6 +320,7 @@
 
   /* ============ groups list ============ */
   async function renderGroups(){
+    clearMaps();
     root.innerHTML = `
       <div class="topbar">
         <div class="brand display">Foto<b>G</b>uessr</div>
@@ -388,6 +396,7 @@
 
   /* ============ inside a group ============ */
   async function openGroup(groupId){
+    clearMaps();
     const { data: group, error } = await sb.from('fg_groups').select('*').eq('id', groupId).single();
     if(error){ root.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error: ${error.message}</div>`; return; }
 
@@ -451,6 +460,7 @@
 
   /* ---------- play ---------- */
   async function showPlay(group){
+    clearMaps();
     const area = document.getElementById('groupArea');
     area.innerHTML = `<div class="help" style="text-align:center;margin-top:60px;">Cargando banco de fotos…</div>`;
 
@@ -494,7 +504,7 @@
       <div id="resultArea"></div>
     `;
 
-    const map = L.map('map', { worldCopyJump:true }).setView([20,0], 2);
+    const map = trackMap(L.map('map', { worldCopyJump:true }).setView([20,0], 2));
     satelliteLayer().addTo(map);
     let guessMarker;
     map.on('click', e => {
@@ -573,6 +583,7 @@
 
   /* ---------- upload ---------- */
   function showUpload(group){
+    clearMaps();
     const area = document.getElementById('groupArea');
     area.innerHTML = `
       <div class="narrow" style="padding:0;">
@@ -638,6 +649,7 @@
 
   /* ---------- compare ---------- */
   async function showCompare(group){
+    clearMaps();
     const area = document.getElementById('groupArea');
     area.innerHTML = `<div class="help" style="text-align:center;margin-top:60px;">Cargando comparación…</div>`;
 
@@ -706,7 +718,7 @@
           </div>`;
         list.appendChild(wrap);
 
-        const map = L.map(`cmap-${myIdx}`, { worldCopyJump:true, zoomControl:false }).setView([20,0], 2);
+        const map = trackMap(L.map(`cmap-${myIdx}`, { worldCopyJump:true, zoomControl:false }).setView([20,0], 2));
         satelliteLayer().addTo(map);
         const bounds = [[photo.lat, photo.lng]];
         L.circleMarker([photo.lat, photo.lng], { radius:8, color:'#e9e9de', weight:2, fillColor:'#e9e9de', fillOpacity:0.9 }).addTo(map).bindPopup('Ubicación real');
@@ -722,6 +734,7 @@
 
   /* ---------- members ---------- */
   async function showMembers(group, isAdmin){
+    clearMaps();
     const area = document.getElementById('groupArea');
     area.innerHTML = `<div class="help" style="text-align:center;margin-top:30px;">Cargando…</div>`;
 
