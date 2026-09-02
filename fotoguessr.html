@@ -199,7 +199,13 @@
   async function boot(){
     const { data } = await sb.auth.getSession();
     session = data.session;
-    sb.auth.onAuthStateChange((_event, s) => { session = s; route(); });
+    sb.auth.onAuthStateChange((event, s) => {
+      session = s;
+      // TOKEN_REFRESHED pasa solo, en segundo plano, cada tanto — no hay que redibujar
+      // toda la pantalla por eso, o corta cosas como una carga de fotos a mitad de camino.
+      if(event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
+      route();
+    });
     await route();
   }
 
@@ -412,7 +418,7 @@
 
   /* ---------- daily block logic ---------- */
   async function fetchUnlockedForGroup(group){
-    const { data: dayRows, error: dayErr } = await sb.rpc('fg_group_day_number', { gid: group.id });
+    const { data: dayRows, error: dayErr } = await sb.rpc('fg_unlocked_block_count', { gid: group.id });
     if(dayErr) throw dayErr;
     const targetBlocks = typeof dayRows === 'number' ? dayRows : (Array.isArray(dayRows) ? dayRows[0] : 1);
 
