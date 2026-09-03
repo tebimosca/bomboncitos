@@ -153,6 +153,18 @@
   function trackMap(map){ activeMaps.push(map); return map; }
   function clearMaps(){ activeMaps.forEach(m => { try{ m.remove(); }catch(e){} }); activeMaps = []; }
 
+  // Si Android descarta la pestaña por memoria (pasa al volver del selector de
+  // archivos) y Chrome la recarga, esto permite volver a donde estabas en vez
+  // de mandarte de nuevo a la lista de grupos.
+  const LS_LAST_VIEW = 'fotoguessr_last_view';
+  function saveLastView(groupId, tab){
+    try{ sessionStorage.setItem(LS_LAST_VIEW, JSON.stringify({ groupId, tab })); }catch(e){}
+  }
+  function getLastView(){
+    try{ return JSON.parse(sessionStorage.getItem(LS_LAST_VIEW) || 'null'); }catch(e){ return null; }
+  }
+  function clearLastView(){ try{ sessionStorage.removeItem(LS_LAST_VIEW); }catch(e){} }
+
   const root = document.getElementById('root');
   let session = null;
   let myProfile = null;
@@ -165,9 +177,10 @@
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   }
   function scoreFromMeters(m){
-    const D0=10, DMAX=100000;
-    if(m<=D0) return 100; if(m>=DMAX) return 0;
-    return Math.max(0, Math.min(100, Math.round(100*Math.log(DMAX/m)/Math.log(DMAX/D0))));
+    const distanceKm = m / 1000;
+    const scaledDistance = distanceKm / 16250;
+    const raw = Math.exp(-scaledDistance * 2); // entre 0 y 1, más alto cuanto más cerca
+    return Math.max(0, Math.min(100, Math.round(raw * 100)));
   }
   function verdictFor(s){
     if(s>=95) return 'Prácticamente exacto.';
@@ -229,6 +242,10 @@
       const { data: gid, error } = await sb.rpc('fg_join_group', { p_code: joinCode });
       if(!error && gid){ openGroup(gid); return; }
     }
+
+    const last = getLastView();
+    if(last && last.groupId){ openGroup(last.groupId, last.tab); return; }
+
     renderGroups();
   }
 
@@ -321,6 +338,7 @@
   /* ============ groups list ============ */
   async function renderGroups(){
     clearMaps();
+    clearLastView();
     root.innerHTML = `
       <div class="topbar">
         <div class="brand display">Foto<b>G</b>uessr</div>
@@ -395,10 +413,10 @@
   }
 
   /* ============ inside a group ============ */
-  async function openGroup(groupId){
+  async function openGroup(groupId, initialTab){
     clearMaps();
     const { data: group, error } = await sb.from('fg_groups').select('*').eq('id', groupId).single();
-    if(error){ root.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error: ${error.message}</div>`; return; }
+    if(error){ clearLastView(); root.innerHTML = `<div class="err" style="text-align:center;margin-top:60px;">Error: ${error.message}</div>`; return; }
 
     const { data: myMembership } = await sb.from('fg_group_members').select('*').eq('group_id', groupId).eq('user_id', session.user.id).maybeSingle();
     const isAdmin = !!(myMembership && myMembership.is_admin);
@@ -408,7 +426,7 @@
         <div class="brand display">Foto<b>G</b>uessr — ${group.name}</div>
         <div class="userbit">
           <button class="textbtn" id="playTab">jugar</button>
-          <button class="textbtn" id="uploadTab">cargar fotos</button>
+          <a class="textbtn" id="uploadTab" href="fotoguessr-subir-fotos.html?group=${group.id}">cargar fotos</a>
           <button class="textbtn" id="compareTab">comparar</button>
           <button class="textbtn" id="membersTab">miembros</button>
           <button class="textbtn" id="backBtn">‹ mis grupos</button>
@@ -416,13 +434,16 @@
       </div>
       <div class="wrap" id="groupArea"><div class="help" style="text-align:center;margin-top:60px;">Cargando…</div></div>
     `;
-    document.getElementById('backBtn').addEventListener('click', renderGroups);
-    document.getElementById('playTab').addEventListener('click', () => showPlay(group));
-    document.getElementById('uploadTab').addEventListener('click', () => showUpload(group));
-    document.getElementById('compareTab').addEventListener('click', () => showCompare(group));
-    document.getElementById('membersTab').addEventListener('click', () => showMembers(group, isAdmin));
+    document.getElementById('backBtn').addEventListener('click', () => { clearLastView(); renderGroups(); });
+    document.getElementById('playTab').addEventListener('click', () => { saveLastView(group.id, 'play'); showPlay(group); });
+    document.getElementById('compareTab').addEventListener('click', () => { saveLastView(group.id, 'compare'); showCompare(group); });
+    document.getElementById('membersTab').addEventListener('click', () => { saveLastView(group.id, 'members'); showMembers(group, isAdmin); });
 
-    showPlay(group);
+    const tab = initialTab || 'play';
+    saveLastView(group.id, tab);
+    if(tab === 'compare') showCompare(group);
+    else if(tab === 'members') showMembers(group, isAdmin);
+    else showPlay(group);
   }
 
   /* ---------- daily block logic ---------- */
@@ -578,7 +599,7 @@
       </div>
       <div style="text-align:center;margin-top:18px;"><button class="btn btn-ghost" id="goCompareBtn" style="width:auto;">Ver comparación foto por foto</button></div>
     `;
-    document.getElementById('goCompareBtn').addEventListener('click', () => showCompare(group));
+    document.getElementById('goCompareBtn').addEventListener('click', () => { saveLastView(group.id, 'compare'); showCompare(group); });
   }
 
   /* ---------- upload ---------- */
