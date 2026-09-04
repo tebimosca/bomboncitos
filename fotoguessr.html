@@ -153,6 +153,12 @@
   function trackMap(map){ activeMaps.push(map); return map; }
   function clearMaps(){ activeMaps.forEach(m => { try{ m.remove(); }catch(e){} }); activeMaps = []; }
 
+  const LS_LAST_VIEW = 'fotoguessr_last_view';
+  function saveLastView(groupId, tab){
+    try{ sessionStorage.setItem(LS_LAST_VIEW, JSON.stringify({ groupId, tab })); }catch(e){}
+  }
+  function clearLastView(){ try{ sessionStorage.removeItem(LS_LAST_VIEW); }catch(e){} }
+
   // Si Android descarta la pestaña por memoria (pasa al volver del selector de
   // archivos) y Chrome la recarga, guardar el grupo/pestaña en la URL misma
   // permite volver a donde estabas apenas arranca la página de nuevo.
