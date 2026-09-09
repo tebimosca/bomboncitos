@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prueba GPS — Google Photos</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
+<style>
+  :root{ --slate:#10161c; --slate-2:#171f27; --paper:#e9e9de; --paper-dim:rgba(233,233,222,0.6);
+    --signal:#ff6a3d; --teal:#7fd6c2; --line:rgba(233,233,222,0.12); }
+  *{box-sizing:border-box;}
+  body{
+    background:var(--slate); color:var(--paper); font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh; margin:0; padding:24px; display:flex; align-items:flex-start; justify-content:center;
+  }
+  .card{ width:100%; max-width:520px; background:var(--slate-2); border:1px solid var(--line); padding:28px; margin-top:40px; }
+  h1{ font-family:Georgia,serif; font-weight:400; font-size:24px; margin:0 0 6px; }
+  p.help{ color:var(--paper-dim); font-size:13px; line-height:1.6; }
+  .btn{ display:inline-block; background:var(--signal); color:#17110c; border:none; padding:12px 22px;
+    font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; margin-top:14px; }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .result{ margin-top:20px; padding:16px; border:1px solid var(--line); background:var(--slate); font-size:14px; line-height:1.7; }
+  .ok{ color:var(--teal); font-weight:600; }
+  .err{ color:#ff8f78; font-weight:600; }
+  .mono{ font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; color:var(--paper-dim); word-break:break-all; }
+  .status{ color:var(--paper-dim); font-size:13px; margin-top:14px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div style="font-size:11px;color:#3a5a55;">prueba técnica</div>
+    <h1>¿Google Photos conserva el GPS?</h1>
+    <p class="help">
+      Tocá el botón, iniciá sesión con tu cuenta de Google, elegí UNA foto vieja de tu Google Photos,
+      y esta página va a intentar leer su ubicación GPS directamente de los bytes que trae la API
+      (sin pasar por el selector de fotos de Android).
+    </p>
+    <button class="btn" id="startBtn">Elegir foto de Google Photos</button>
+    <div class="status" id="status"></div>
+    <div id="resultArea"></div>
+  </div>
+
+<script>
+  const CLIENT_ID = "477570555761-j20nomphc3pv3rpp4uqd03p58c4p51sr.apps.googleusercontent.com";
+  const SCOPE = "https://www.googleapis.com/auth/photospicker.mediaitems.readonly";
+
+  let accessToken = null;
+  let tokenClient = null;
+
+  const startBtn = document.getElementById('startBtn');
+  const statusEl = document.getElementById('status');
+  const resultArea = document.getElementById('resultArea');
+
+  function setStatus(txt){ statusEl.textContent = txt; }
+
+  window.addEventListener('load', () => {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPE,
+      callback: (resp) => {
+        if(resp.error){ setStatus('Error de autenticación: ' + resp.error); return; }
+        accessToken = resp.access_token;
+        startPickerSession();
+      }
+    });
+  });
+
+  startBtn.addEventListener('click', () => {
+    resultArea.innerHTML = '';
+    if(!tokenClient){ setStatus('Todavía está cargando Google Identity Services, esperá un segundo y probá de nuevo.'); return; }
+    startBtn.disabled = true;
+    tokenClient.requestAccessToken();
+  });
+
+  async function startPickerSession(){
+    setStatus('Creando sesión del selector…');
+    try{
+      const res = await fetch('https://photospicker.googleapis.com/v1/sessions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const session = await res.json();
+      if(!res.ok){ throw new Error(session.error?.message || 'no se pudo crear la sesión'); }
+
+      setStatus('Abriendo el selector de Google Photos en una pestaña nueva…');
+      window.open(session.pickerUri, '_blank');
+      pollSession(session.id);
+    }catch(e){
+      setStatus('Error: ' + e.message);
+      startBtn.disabled = false;
+    }
+  }
+
+  async function pollSession(sessionId){
+    try{
+      const res = await fetch(`https://photospicker.googleapis.com/v1/sessions/${sessionId}`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      const data = await res.json();
+      if(data.mediaItemsSet){
+        setStatus('Foto elegida, descargando y leyendo GPS…');
+        fetchMediaItems(sessionId);
+      } else {
+        setStatus('Esperando que elijas una foto en la otra pestaña…');
+        setTimeout(() => pollSession(sessionId), 2500);
+      }
+    }catch(e){
+      setStatus('Error consultando la sesión: ' + e.message);
+      startBtn.disabled = false;
+    }
+  }
+
+  async function fetchMediaItems(sessionId){
+    try{
+      const res = await fetch(`https://photospicker.googleapis.com/v1/mediaItems?sessionId=${sessionId}`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      const data = await res.json();
+      if(!data.mediaItems || data.mediaItems.length === 0){
+        setStatus('No se detectó ninguna foto elegida.');
+        startBtn.disabled = false;
+        return;
+      }
+      for(const item of data.mediaItems){
+        await checkGPS(item);
+      }
+      setStatus('Listo.');
+      startBtn.disabled = false;
+    }catch(e){
+      setStatus('Error trayendo la foto: ' + e.message);
+      startBtn.disabled = false;
+    }
+  }
+
+  function toDecimal(gps, ref){
+    if(!gps) return null;
+    let v = gps[0] + gps[1]/60 + gps[2]/3600;
+    if(ref==='S'||ref==='W') v=-v;
+    return v;
+  }
+
+  async function checkGPS(item){
+    const baseUrl = item.mediaFile.baseUrl;
+    const downloadUrl = baseUrl + '=d'; // "=d" pide los bytes originales, con metadata completa
+    const res = await fetch(downloadUrl, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+    const blob = await res.blob();
+
+    const box = document.createElement('div');
+    box.className = 'result';
+    resultArea.appendChild(box);
+
+    EXIF.getData(blob, function(){
+      const lat = EXIF.getTag(this, 'GPSLatitude'), latRef = EXIF.getTag(this, 'GPSLatitudeRef');
+      const lng = EXIF.getTag(this, 'GPSLongitude'), lngRef = EXIF.getTag(this, 'GPSLongitudeRef');
+      if(!lat || !lng){
+        box.innerHTML = `<span class="err">✕ Sin GPS</span><br>Esta foto no trajo ubicación en el EXIF.<br><span class="mono">${item.mediaFile.mimeType}, ${(blob.size/1024).toFixed(0)} KB</span>`;
+        return;
+      }
+      const decLat = toDecimal(lat, latRef), decLng = toDecimal(lng, lngRef);
+      box.innerHTML = `<span class="ok">✓ GPS encontrado</span><br>Latitud: ${decLat.toFixed(6)} — Longitud: ${decLng.toFixed(6)}<br><span class="mono">${item.mediaFile.mimeType}, ${(blob.size/1024).toFixed(0)} KB</span>`;
+    });
+  }
+</script>
+</body>
+</html>
