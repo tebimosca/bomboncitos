@@ -55,7 +55,9 @@
   .groupcard{
     display:flex; justify-content:space-between; align-items:center;
     background: var(--slate-2); border:1px solid var(--line); padding: 16px 18px; cursor:pointer;
+    color: var(--paper); text-decoration:none;
   }
+  .groupcard:visited{ color: var(--paper); }
   .groupcard:hover{ border-color: var(--signal); }
   .groupcard .gname{ font-family: Georgia, serif; font-size:17px; }
   .groupcard .garrow{ color: var(--paper-dim); }
@@ -355,6 +357,7 @@
       <div class="topbar">
         <div class="brand display">Foto<b>G</b>uessr</div>
         <div class="userbit"><span>hola, <b>${myProfile.display_name}</b></span>
+          <a class="textbtn" href="fotoguessr-subir-fotos.html">cargar fotos</a>
           <button class="textbtn" id="logoutBtn">cerrar sesión</button>
         </div>
       </div>

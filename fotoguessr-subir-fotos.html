@@ -6,6 +6,7 @@
 <title>Cargar fotos — FotoGuessr</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root{
     --slate:#10161c; --slate-2:#171f27; --line:rgba(233,233,222,0.10);
@@ -60,6 +61,19 @@
   .item img{ width:44px; height:44px; object-fit:cover; flex-shrink:0; background:#000; }
   .item .name{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .status.pending{ color: var(--paper-dim); } .status.ok{ color: var(--teal); } .status.err{ color:#ff8f78; }
+  .btn-google{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%;
+    background: var(--slate); color: var(--paper); border:1px solid rgba(233,233,222,0.25);
+    padding: 12px 20px; font-size: 14px; font-weight: 600; cursor:pointer; font-family: inherit; margin-top:14px;
+  }
+  .btn-google:hover{ border-color: var(--signal); }
+  .btn-google:disabled{ opacity:0.4; cursor:not-allowed; }
+  .or-sep{ text-align:center; color: var(--paper-dim); font-size:12px; margin: 16px 0; }
+  .warn-banner{
+    background: rgba(255,106,61,0.08); border:1px solid rgba(255,106,61,0.35);
+    color: var(--paper); padding: 14px 16px; font-size: 13px; line-height:1.6; margin-bottom: 18px;
+  }
+  .warn-banner b{ color: var(--signal); }
 </style>
 </head>
 <body>
@@ -70,6 +84,8 @@
   const SUPABASE_URL = "https://usxonhttmrzgaznvgksf.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzeG9uaHR0bXJ6Z2F6bnZna3NmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyODU1OTksImV4cCI6MjEwMzg2MTU5OX0.utIi2q19x5TL-kF4ymrC-0cbJ2t0h0MXpeXDSA9f0wI";
   const BUCKET = "fotoguessr";
+  const GOOGLE_CLIENT_ID = "477570555761-j20nomphc3pv3rpp4uqd03p58c4p51sr.apps.googleusercontent.com";
+  const GOOGLE_PHOTOS_SCOPE = "https://www.googleapis.com/auth/photospicker.mediaitems.readonly";
 
   // Esta página comparte sesión con fotoguessr.html (misma localStorage, mismo Supabase).
   // A propósito NO carga Leaflet ni ningún mapa: es la página liviana pensada
@@ -80,6 +96,18 @@
 
   const root = document.getElementById('root');
   let session = null, myProfile = null;
+  let googleTokenClient = null;
+  let googleAccessToken = null;
+
+  window.addEventListener('load', () => {
+    if(window.google && google.accounts && google.accounts.oauth2){
+      googleTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: GOOGLE_PHOTOS_SCOPE,
+        callback: () => {} // se reasigna en cada uso, ver startGooglePhotosImport
+      });
+    }
+  });
 
   function toDecimal(gps, ref){
     if(!gps) return null;
@@ -89,6 +117,9 @@
   }
   function mainAppUrl(){
     return new URL('fotoguessr.html', window.location.href).toString();
+  }
+  function isAndroid(){
+    return /Android/i.test(navigator.userAgent);
   }
 
   async function boot(){
@@ -220,12 +251,20 @@
         </div>
       </div>
       <div class="narrow">
+        ${isAndroid() ? `
+        <div class="warn-banner">
+          <b>Ojo si estás en Android:</b> el sistema suele borrar la ubicación GPS de las fotos que ya tenés guardadas al elegirlas desde la galería o el gestor de archivos — las fotos recién sacadas con la cámara sí funcionan bien.
+          Si querés cargar fotos viejas, probá con el botón de "Google Photos" de abajo, o bajá la foto desde <a href="https://photos.google.com" target="_blank" style="color:var(--signal);">photos.google.com</a> (con "Descargar", no compartir) y después elegila acá.
+        </div>` : ''}
         <p class="help">Subí fotos con GPS activado. Se van a sortear entre las fechas del grupo, mezcladas con el resto del banco — no importa el orden en que las cargues.</p>
         <div class="dropzone" id="dropzone">
           <div>Arrastrá tus fotos acá, o hacé clic para elegirlas</div>
           <div class="help">Las que no tengan GPS en el EXIF se rechazan.</div>
           <input type="file" id="fileInput" multiple>
         </div>
+        <div class="or-sep">— o bien —</div>
+        <button class="btn-google" id="googlePhotosBtn">Elegir fotos de Google Photos</button>
+        <div class="help" id="googleStatus" style="text-align:center;margin-top:8px;"></div>
         <div class="queue" id="queue"></div>
       </div>
     `;
@@ -283,6 +322,127 @@
         statusEl.textContent = 'cargada ✓'; statusEl.className = 'status ok';
       }catch(e){
         statusEl.textContent = 'error: ' + (e.message||'no se pudo subir'); statusEl.className = 'status err';
+      }
+    }
+
+    /* ---------- Google Photos ---------- */
+    const googlePhotosBtn = document.getElementById('googlePhotosBtn');
+    const googleStatus = document.getElementById('googleStatus');
+
+    googlePhotosBtn.addEventListener('click', () => {
+      if(!googleTokenClient){
+        googleStatus.textContent = 'Todavía está cargando Google, esperá un segundo y probá de nuevo.';
+        return;
+      }
+      googlePhotosBtn.disabled = true;
+      googleTokenClient.callback = (resp) => {
+        if(resp.error){
+          googleStatus.textContent = 'Error de autenticación: ' + resp.error;
+          googlePhotosBtn.disabled = false;
+          return;
+        }
+        googleAccessToken = resp.access_token;
+        startGoogleSession();
+      };
+      googleTokenClient.requestAccessToken();
+    });
+
+    async function startGoogleSession(){
+      googleStatus.textContent = 'Abriendo el selector de Google Photos…';
+      try{
+        const res = await fetch('https://photospicker.googleapis.com/v1/sessions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${googleAccessToken}`, 'Content-Type': 'application/json' },
+          body: '{}'
+        });
+        const gsession = await res.json();
+        if(!res.ok) throw new Error(gsession.error?.message || 'no se pudo abrir el selector');
+        window.open(gsession.pickerUri, '_blank');
+        pollGoogleSession(gsession.id);
+      }catch(e){
+        googleStatus.textContent = 'Error: ' + e.message;
+        googlePhotosBtn.disabled = false;
+      }
+    }
+
+    async function pollGoogleSession(sessionId){
+      try{
+        const res = await fetch(`https://photospicker.googleapis.com/v1/sessions/${sessionId}`, {
+          headers: { 'Authorization': `Bearer ${googleAccessToken}` }
+        });
+        const data = await res.json();
+        if(data.mediaItemsSet){
+          googleStatus.textContent = 'Trayendo las fotos elegidas…';
+          importGoogleMediaItems(sessionId);
+        } else {
+          googleStatus.textContent = 'Esperando que elijas fotos en la otra pestaña…';
+          setTimeout(() => pollGoogleSession(sessionId), 2500);
+        }
+      }catch(e){
+        googleStatus.textContent = 'Error: ' + e.message;
+        googlePhotosBtn.disabled = false;
+      }
+    }
+
+    async function importGoogleMediaItems(sessionId){
+      try{
+        const res = await fetch(`https://photospicker.googleapis.com/v1/mediaItems?sessionId=${sessionId}`, {
+          headers: { 'Authorization': `Bearer ${googleAccessToken}` }
+        });
+        const data = await res.json();
+        if(!data.mediaItems || data.mediaItems.length === 0){
+          googleStatus.textContent = 'No se eligió ninguna foto.';
+          googlePhotosBtn.disabled = false;
+          return;
+        }
+        for(const item of data.mediaItems){
+          await importOneGoogleItem(item);
+        }
+        googleStatus.textContent = `Listo, ${data.mediaItems.length} foto(s) procesadas.`;
+      }catch(e){
+        googleStatus.textContent = 'Error: ' + e.message;
+      }
+      googlePhotosBtn.disabled = false;
+    }
+
+    async function importOneGoogleItem(item){
+      const mime = item.mediaFile.mimeType || 'image/jpeg';
+      const ext = mime.includes('png') ? 'png' : 'jpg';
+      const displayName = item.mediaFile.filename || `google_${Date.now()}.${ext}`;
+
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.innerHTML = `<img src="${item.mediaFile.baseUrl}=w88-h88-c"><div class="name">${displayName}</div><div class="status pending">leyendo GPS…</div>`;
+      queue.prepend(row);
+      const statusEl = row.querySelector('.status');
+      row.querySelector('img').crossOrigin = 'anonymous';
+
+      try{
+        const res = await fetch(item.mediaFile.baseUrl + '=d', {
+          headers: { 'Authorization': `Bearer ${googleAccessToken}` }
+        });
+        if(!res.ok) throw new Error('no se pudo descargar la foto');
+        const blob = await res.blob();
+        const file = new File([blob], displayName, { type: mime });
+
+        EXIF.getData(file, function(){
+          const lat = EXIF.getTag(this,'GPSLatitude'), latRef = EXIF.getTag(this,'GPSLatitudeRef');
+          const lng = EXIF.getTag(this,'GPSLongitude'), lngRef = EXIF.getTag(this,'GPSLongitudeRef');
+          if(!lat || !lng || !Array.isArray(lat) || lat.length < 3 || !Array.isArray(lng) || lng.length < 3){
+            statusEl.textContent = 'sin GPS — rechazada'; statusEl.className = 'status err';
+            return;
+          }
+          const decLat = toDecimal(lat, latRef);
+          const decLng = toDecimal(lng, lngRef);
+          if(!isFinite(decLat) || !isFinite(decLng) || decLat < -90 || decLat > 90 || decLng < -180 || decLng > 180){
+            statusEl.textContent = 'GPS ilegible — rechazada'; statusEl.className = 'status err';
+            return;
+          }
+          statusEl.textContent = 'subiendo…';
+          uploadFile(file, decLat, decLng, statusEl);
+        });
+      }catch(e){
+        statusEl.textContent = 'error: ' + (e.message||'no se pudo traer'); statusEl.className = 'status err';
       }
     }
   }
