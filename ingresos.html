@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ingresos</title>
+
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/logos/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/logos/favicon-16x16.png">
+  <link rel="shortcut icon" href="assets/logos/favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/logos/apple-touch-icon.png">
+  <link rel="mask-icon" href="assets/logos/safari-pinned-tab.svg" color="#c0fe41">
+  <link rel="manifest" href="assets/logos/site.webmanifest">
+  <meta name="msapplication-TileColor" content="#48576F">
+  <meta name="msapplication-TileImage" content="assets/logos/mstile-150x150.png">
+  <meta name="theme-color" content="#48576F">
+
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap');
+
+    select {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>ingresos</h1>
+    <img class="logo" src="assets/logos/Logo.png" alt="Bomboncitos">
+  </div>
+
+  <form id="form-ingreso">
+
+    <!-- Paso 1: quién recibe -->
+    <div class="form-control">
+      <label>quién recibe?</label>
+      <div class="name-selector" id="name-selector">
+        <button type="button" onclick="selectPersona(this, 'Tebi')">tebi</button>
+        <button type="button" onclick="selectPersona(this, 'Anita')">anita</button>
+      </div>
+    </div>
+
+    <!-- Paso 2: cuenta destino -->
+    <div class="form-control">
+      <label for="cuenta">a qué cuenta ingresa:</label>
+      <select id="cuenta">
+        <option value="">seleccionar...</option>
+      </select>
+    </div>
+
+    <!-- Paso 3: descripción -->
+    <div class="form-control">
+      <label for="descripcion">descripción:</label>
+      <input type="text" id="descripcion">
+    </div>
+
+    <!-- Paso 4: categoría de ingreso -->
+    <div class="form-control">
+      <label for="categoria">categoría:</label>
+      <select id="categoria">
+        <option value="">seleccionar...</option>
+      </select>
+    </div>
+
+    <!-- Paso 5 y 6: monto y fecha -->
+    <div class="row">
+      <div class="form-control">
+        <label for="monto">monto:</label>
+        <div class="monto-wrapper">
+          <button type="button" class="btn-moneda" id="btn-moneda" onclick="toggleMoneda()">ar$</button>
+          <input type="number" id="monto" step="0.01" required>
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label for="fecha">fecha:</label>
+        <input type="date" id="fecha" required>
+      </div>
+    </div>
+
+    <button type="submit">enviar</button>
+  </form>
+
+  <p id="confirmacion" style="display:none; text-align:center;">¡Ingreso cargado!</p>
+
+<a class="franja"></a>
+
+<div class="seccion-resultados">
+  <div class="seccion-resultados-inner">
+    <label>últimos registros</label>
+    <div id="ultimos-registros" class="registros-caja"></div>
+  </div>
+</div>
+
+<a class="franja-fin"></a>
+
+<footer style="text-align:center; margin-top:40px; opacity:0.7; font-size:14px;">
+  <p id="quien-carga"></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+  const NUM_ULTIMOS_REGISTROS = 10;
+
+  const quienCarga = localStorage.getItem('bomboncitos_persona');
+  if (!quienCarga) {
+    window.location.href = 'login.html';
+  } else {
+    document.getElementById('quien-carga').textContent = 'cargando como: ' + quienCarga;
+  }
+
+  let persona = quienCarga || 'Tebi';
+  let moneda = 'ARS';
+
+  // ---------- Paso 1: quién recibe ----------
+  function selectPersona(btn, nombre) {
+    document.querySelectorAll('#name-selector button').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    persona = nombre;
+    cargarCuentas();
+  }
+
+  // ---------- Moneda ----------
+  function toggleMoneda() {
+    moneda = moneda === 'ARS' ? 'USD' : 'ARS';
+    document.getElementById('btn-moneda').textContent = moneda === 'ARS' ? 'ar$' : 'u$d';
+  }
+
+  // ---------- Carga de cuentas (según persona) ----------
+  async function cargarCuentas() {
+    const select = document.getElementById('cuenta');
+    select.innerHTML = '<option value="">seleccionar...</option>';
+
+    const { data, error } = await supabaseClient
+      .from('cuentas')
+      .select('id, designacion, dueño, activo')
+      .eq('dueño', persona)
+      .eq('activo', true);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    data.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.designacion;
+      select.appendChild(opt);
+    });
+  }
+
+  // ---------- Carga de categorías de ingreso (una sola vez) ----------
+  async function cargarCategorias() {
+    const select = document.getElementById('categoria');
+
+    const { data, error } = await supabaseClient
+      .from('categorias_ingreso')
+      .select('id, designacion, tipo, activo')
+      .eq('activo', true);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    data.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.tipo ? `${cat.designacion} (${cat.tipo})` : cat.designacion;
+      select.appendChild(opt);
+    });
+  }
+
+  // ---------- Formato ----------
+  function formatearMonto(monto, moneda) {
+    const simbolo = moneda === 'USD' ? 'u$d' : 'ar$';
+    return simbolo + ' ' + new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(monto);
+  }
+
+  function formatearFecha(fechaStr) {
+    const [anio, mes, dia] = fechaStr.split('-');
+    return `${dia}/${mes}`;
+  }
+
+  function truncar(texto, largo) {
+    if (!texto) return '';
+    return texto.length > largo ? texto.slice(0, largo) + '...' : texto;
+  }
+
+  // ---------- Últimos registros ----------
+  async function cargarUltimos() {
+    const { data, error } = await supabaseClient
+      .from('ingresos')
+      .select('*, cuentas(designacion), categorias_ingreso(designacion)')
+      .order('creado_en', { ascending: false })
+      .limit(NUM_ULTIMOS_REGISTROS);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    const cont = document.getElementById('ultimos-registros');
+    cont.innerHTML = '';
+
+    data.forEach(r => {
+      const linea = document.createElement('div');
+      linea.className = 'registro-linea';
+      const cuentaNombre = r.cuentas ? r.cuentas.designacion : '';
+      const catNombre = r.categorias_ingreso ? r.categorias_ingreso.designacion : '';
+      linea.textContent = `${formatearFecha(r.fecha)} ${formatearMonto(r.monto, r.moneda)} ${r.persona.toLowerCase()} → ${cuentaNombre} ${catNombre} ${truncar(r.descripcion, 15)}`;
+      cont.appendChild(linea);
+    });
+  }
+
+  // ---------- Envío del formulario ----------
+  document.getElementById('form-ingreso').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const cuentaId = document.getElementById('cuenta').value;
+    const categoriaId = document.getElementById('categoria').value;
+    const monto = document.getElementById('monto').value;
+    const descripcion = document.getElementById('descripcion').value;
+    const fecha = document.getElementById('fecha').value;
+
+    if (!cuentaId) {
+      alert('Elegí la cuenta.');
+      return;
+    }
+
+    const payload = {
+      persona: persona,
+      cuenta_id: parseInt(cuentaId),
+      categoria_ingreso_id: categoriaId ? parseInt(categoriaId) : null,
+      monto: parseFloat(monto),
+      moneda: moneda,
+      descripcion: descripcion,
+      fecha: fecha
+    };
+
+    const { error } = await supabaseClient.from('ingresos').insert(payload);
+
+    if (error) {
+      alert('Error al guardar: ' + error.message);
+      return;
+    }
+
+    // Reset del formulario
+    document.getElementById('form-ingreso').reset();
+    document.querySelectorAll('#name-selector button').forEach(b => b.classList.remove('selected'));
+    document.getElementById('cuenta').innerHTML = '<option value="">seleccionar...</option>';
+    moneda = 'ARS';
+    document.getElementById('btn-moneda').textContent = 'ar$';
+    persona = quienCarga;
+
+    document.getElementById('confirmacion').style.display = 'block';
+    setTimeout(() => document.getElementById('confirmacion').style.display = 'none', 2000);
+
+    cargarUltimos();
+  });
+
+  // ---------- Inicialización ----------
+  (async function init() {
+    await cargarCategorias();
+    await cargarUltimos();
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Movimientos</title>
+
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/logos/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/logos/favicon-16x16.png">
+  <link rel="shortcut icon" href="assets/logos/favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/logos/apple-touch-icon.png">
+  <link rel="mask-icon" href="assets/logos/safari-pinned-tab.svg" color="#c0fe41">
+  <link rel="manifest" href="assets/logos/site.webmanifest">
+  <meta name="msapplication-TileColor" content="#48576F">
+  <meta name="msapplication-TileImage" content="assets/logos/mstile-150x150.png">
+  <meta name="theme-color" content="#48576F">
+
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap');
+
+    select {
+      cursor: pointer;
+    }
+
+    input[readonly] {
+      opacity: 0.75;
+      cursor: not-allowed;
+    }
+
+    .campo-dinamico {
+      overflow: hidden;
+      max-height: 500px;
+      opacity: 1;
+      transition: max-height 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
+    }
+
+    .campo-dinamico.oculto {
+      max-height: 0;
+      opacity: 0;
+      margin-bottom: 0 !important;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>movimientos</h1>
+    <img class="logo" src="assets/logos/Logo.png" alt="Bomboncitos">
+  </div>
+
+  <form id="form-movimiento">
+
+    <!-- Paso 1: persona -->
+    <div class="form-control">
+      <label>de quién es el movimiento?</label>
+      <div class="name-selector" id="name-selector">
+        <button type="button" onclick="selectPersona(this, 'Tebi')">tebi</button>
+        <button type="button" onclick="selectPersona(this, 'Anita')">anita</button>
+      </div>
+    </div>
+
+    <!-- Paso 2: cuenta origen -->
+    <div class="form-control campo-dinamico oculto" id="wrap-origen">
+      <label for="cuenta-origen">cuenta de origen:</label>
+      <select id="cuenta-origen">
+        <option value="">seleccionar...</option>
+      </select>
+    </div>
+
+    <!-- Paso 3: cuenta destino -->
+    <div class="form-control campo-dinamico oculto" id="wrap-destino">
+      <label for="cuenta-destino">cuenta de destino:</label>
+      <select id="cuenta-destino">
+        <option value="">seleccionar...</option>
+      </select>
+    </div>
+
+    <!-- Paso 4: monto y activo de origen -->
+    <div class="row campo-dinamico oculto" id="wrap-monto-origen">
+      <div class="form-control">
+        <label for="monto-origen">monto enviado:</label>
+        <input type="number" id="monto-origen" step="0.01">
+      </div>
+      <div class="form-control">
+        <label for="activo-origen">moneda / activo:</label>
+        <input type="text" id="activo-origen" list="lista-activo-origen">
+        <datalist id="lista-activo-origen"></datalist>
+      </div>
+    </div>
+
+    <!-- Paso 5: monto y activo de destino (solo si activo destino distinto del origen) -->
+    <div class="row campo-dinamico oculto" id="wrap-monto-destino">
+      <div class="form-control">
+        <label for="monto-destino">monto recibido:</label>
+        <input type="number" id="monto-destino" step="0.01">
+      </div>
+      <div class="form-control">
+        <label for="activo-destino">moneda / activo:</label>
+        <input type="text" id="activo-destino" list="lista-activo-destino">
+        <datalist id="lista-activo-destino"></datalist>
+      </div>
+    </div>
+
+    <!-- Paso 6: descripción -->
+    <div class="form-control">
+      <label for="descripcion">descripción:</label>
+      <input type="text" id="descripcion">
+    </div>
+
+    <!-- Paso 7: fecha -->
+    <div class="form-control">
+      <label for="fecha">fecha:</label>
+      <input type="date" id="fecha" required>
+    </div>
+
+    <button type="submit">enviar</button>
+  </form>
+
+  <p id="confirmacion" style="display:none; text-align:center;">¡Movimiento cargado!</p>
+
+<a class="franja"></a>
+
+<div class="seccion-resultados">
+  <div class="seccion-resultados-inner">
+    <label>últimos registros</label>
+    <div id="ultimos-registros" class="registros-caja"></div>
+  </div>
+</div>
+
+<a class="franja-fin"></a>
+
+<footer style="text-align:center; margin-top:40px; opacity:0.7; font-size:14px;">
+  <p id="quien-carga"></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+  const NUM_ULTIMOS_REGISTROS = 10;
+
+  const quienCarga = localStorage.getItem('bomboncitos_persona');
+  if (!quienCarga) {
+    window.location.href = 'login.html';
+  } else {
+    document.getElementById('quien-carga').textContent = 'cargando como: ' + quienCarga;
+  }
+
+  let persona = quienCarga || 'Tebi';
+  let cuentasPersona = [];
+  let cuentaOrigenInfo = null;
+  let cuentaDestinoInfo = null;
+
+  // ---------- Paso 1: persona ----------
+  function selectPersona(btn, nombre) {
+    document.querySelectorAll('#name-selector button').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    persona = nombre;
+    resetDesdeOrigen();
+    cargarCuentasOrigen();
+  }
+
+  // ---------- Carga cuentas de origen (todas las de la persona) ----------
+  async function cargarCuentasOrigen() {
+    const select = document.getElementById('cuenta-origen');
+    select.innerHTML = '<option value="">seleccionar...</option>';
+
+    const { data, error } = await supabaseClient
+      .from('cuentas')
+      .select('id, designacion, moneda, activo')
+      .eq('dueño', persona)
+      .eq('activo', true);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    cuentasPersona = data;
+    data.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.designacion;
+      select.appendChild(opt);
+    });
+
+    document.getElementById('wrap-origen').classList.remove('oculto');
+  }
+
+  // ---------- Selección de cuenta origen ----------
+  document.getElementById('cuenta-origen').addEventListener('change', function () {
+    const id = parseInt(this.value);
+    cuentaOrigenInfo = cuentasPersona.find(c => c.id === id) || null;
+    resetDesdeDestino();
+
+    if (!cuentaOrigenInfo) return;
+
+    // Cuenta destino: mismas cuentas de la persona, excluyendo la de origen
+    const selectDestino = document.getElementById('cuenta-destino');
+    selectDestino.innerHTML = '<option value="">seleccionar...</option>';
+    cuentasPersona
+      .filter(c => c.id !== cuentaOrigenInfo.id)
+      .forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.designacion;
+        selectDestino.appendChild(opt);
+      });
+
+    document.getElementById('wrap-destino').classList.remove('oculto');
+  });
+
+  // ---------- Selección de cuenta destino ----------
+  document.getElementById('cuenta-destino').addEventListener('change', async function () {
+    const id = parseInt(this.value);
+    cuentaDestinoInfo = cuentasPersona.find(c => c.id === id) || null;
+
+    if (!cuentaDestinoInfo) {
+      document.getElementById('wrap-monto-origen').classList.add('oculto');
+      document.getElementById('wrap-monto-destino').classList.add('oculto');
+      return;
+    }
+
+    await prepararActivo('origen', cuentaOrigenInfo);
+    await prepararActivo('destino', cuentaDestinoInfo);
+
+    document.getElementById('wrap-monto-origen').classList.remove('oculto');
+    recalcularSincronizacion();
+  });
+
+  // ---------- Preparar campo de activo (fijo o editable con sugerencias) ----------
+  async function prepararActivo(lado, cuentaInfo) {
+    const input = document.getElementById(`activo-${lado}`);
+    const datalist = document.getElementById(`lista-activo-${lado}`);
+
+    if (cuentaInfo.moneda) {
+      input.value = cuentaInfo.moneda;
+      input.readOnly = true;
+      datalist.innerHTML = '';
+    } else {
+      input.value = '';
+      input.readOnly = false;
+      datalist.innerHTML = '';
+
+      // Sugerencias: activos usados antes en esta cuenta (como origen o como destino)
+      const { data, error } = await supabaseClient
+        .from('movimientos_cuentas')
+        .select('activo_origen, activo_destino, cuenta_origen_id, cuenta_destino_id')
+        .or(`cuenta_origen_id.eq.${cuentaInfo.id},cuenta_destino_id.eq.${cuentaInfo.id}`);
+
+      if (!error && data) {
+        const activos = new Set();
+        data.forEach(m => {
+          if (m.cuenta_origen_id === cuentaInfo.id) activos.add(m.activo_origen);
+          if (m.cuenta_destino_id === cuentaInfo.id) activos.add(m.activo_destino);
+        });
+        activos.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a;
+          datalist.appendChild(opt);
+        });
+      }
+    }
+  }
+
+  // ---------- Sincronización monto destino según coincidencia de activos ----------
+  function recalcularSincronizacion() {
+    const activoOrigen = document.getElementById('activo-origen').value.trim();
+    const activoDestino = document.getElementById('activo-destino').value.trim();
+    const wrapMontoDestino = document.getElementById('wrap-monto-destino');
+
+    const mismaMoneda = activoOrigen && activoDestino && activoOrigen.toUpperCase() === activoDestino.toUpperCase();
+
+    if (mismaMoneda) {
+      wrapMontoDestino.classList.add('oculto');
+      document.getElementById('monto-destino').value = document.getElementById('monto-origen').value;
+    } else {
+      wrapMontoDestino.classList.remove('oculto');
+    }
+  }
+
+  document.getElementById('activo-origen').addEventListener('input', recalcularSincronizacion);
+  document.getElementById('activo-destino').addEventListener('input', recalcularSincronizacion);
+  document.getElementById('monto-origen').addEventListener('input', function () {
+    const wrapMontoDestino = document.getElementById('wrap-monto-destino');
+    if (wrapMontoDestino.classList.contains('oculto')) {
+      document.getElementById('monto-destino').value = this.value;
+    }
+  });
+
+  // ---------- Reset en cascada ----------
+  function resetDesdeOrigen() {
+    document.getElementById('cuenta-origen').innerHTML = '<option value="">seleccionar...</option>';
+    resetDesdeDestino();
+  }
+
+  function resetDesdeDestino() {
+    document.getElementById('cuenta-destino').innerHTML = '<option value="">seleccionar...</option>';
+    document.getElementById('wrap-destino').classList.add('oculto');
+    document.getElementById('wrap-monto-origen').classList.add('oculto');
+    document.getElementById('wrap-monto-destino').classList.add('oculto');
+    cuentaDestinoInfo = null;
+  }
+
+  // ---------- Formato ----------
+  function formatearMonto(monto, activo) {
+    return `${activo} ${new Intl.NumberFormat('es-AR', { maximumFractionDigits: 2 }).format(monto)}`;
+  }
+
+  function formatearFecha(fechaStr) {
+    const [anio, mes, dia] = fechaStr.split('-');
+    return `${dia}/${mes}`;
+  }
+
+  function truncar(texto, largo) {
+    if (!texto) return '';
+    return texto.length > largo ? texto.slice(0, largo) + '...' : texto;
+  }
+
+  // ---------- Últimos registros ----------
+  async function cargarUltimos() {
+    const { data, error } = await supabaseClient
+      .from('movimientos_cuentas')
+      .select('*, origen:cuenta_origen_id(designacion), destino:cuenta_destino_id(designacion)')
+      .order('creado_en', { ascending: false })
+      .limit(NUM_ULTIMOS_REGISTROS);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    const cont = document.getElementById('ultimos-registros');
+    cont.innerHTML = '';
+
+    data.forEach(m => {
+      const linea = document.createElement('div');
+      linea.className = 'registro-linea';
+      const nombreOrigen = m.origen ? m.origen.designacion : '';
+      const nombreDestino = m.destino ? m.destino.designacion : '';
+      linea.textContent = `${formatearFecha(m.fecha)} ${m.persona.toLowerCase()} ${nombreOrigen} → ${nombreDestino}: ${formatearMonto(m.monto_origen, m.activo_origen)} → ${formatearMonto(m.monto_destino, m.activo_destino)} ${truncar(m.descripcion, 12)}`;
+      cont.appendChild(linea);
+    });
+  }
+
+  // ---------- Envío del formulario ----------
+  document.getElementById('form-movimiento').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    if (!cuentaOrigenInfo || !cuentaDestinoInfo) {
+      alert('Elegí cuenta de origen y destino.');
+      return;
+    }
+
+    const montoOrigen = document.getElementById('monto-origen').value;
+    const activoOrigen = document.getElementById('activo-origen').value.trim();
+    const montoDestino = document.getElementById('monto-destino').value;
+    const activoDestino = document.getElementById('activo-destino').value.trim();
+    const descripcion = document.getElementById('descripcion').value;
+    const fecha = document.getElementById('fecha').value;
+
+    if (!montoOrigen || !activoOrigen || !montoDestino || !activoDestino) {
+      alert('Completá monto y moneda/activo de origen y destino.');
+      return;
+    }
+
+    const payload = {
+      persona: persona,
+      cuenta_origen_id: cuentaOrigenInfo.id,
+      monto_origen: parseFloat(montoOrigen),
+      activo_origen: activoOrigen,
+      cuenta_destino_id: cuentaDestinoInfo.id,
+      monto_destino: parseFloat(montoDestino),
+      activo_destino: activoDestino,
+      descripcion: descripcion,
+      fecha: fecha
+    };
+
+    const { error } = await supabaseClient.from('movimientos_cuentas').insert(payload);
+
+    if (error) {
+      alert('Error al guardar: ' + error.message);
+      return;
+    }
+
+    // Reset del formulario
+    document.getElementById('form-movimiento').reset();
+    document.querySelectorAll('#name-selector button').forEach(b => b.classList.remove('selected'));
+    resetDesdeOrigen();
+    cuentaOrigenInfo = null;
+    cuentaDestinoInfo = null;
+    persona = quienCarga;
+
+    document.getElementById('confirmacion').style.display = 'block';
+    setTimeout(() => document.getElementById('confirmacion').style.display = 'none', 2000);
+
+    cargarUltimos();
+  });
+
+  // ---------- Inicialización ----------
+  cargarUltimos();
+</script>
+
+</body>
+</html>
