@@ -22,6 +22,7 @@ body {
   padding: 20px;
   max-width: 500px;
   margin-inline: auto;
+  text-transform: lowercase;
   /*overflow-x: hidden; BORRO ESTA LINEA PARA QUE LA FRANJA Y EL COLOR DE FONDO LLEGUE HASTA LOS BORDES*/
 }
 
@@ -93,6 +94,27 @@ input[type="date"] {
 
 input[type="number"], input[type="text"] {
   height: 52px;
+}
+
+/* Selects nativos: algunos navegadores (sobre todo iOS/Safari) ignoran
+   font-family y border-radius en <select> a menos que se le saque la
+   apariencia nativa explícitamente. */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  font-family: 'Poppins', sans-serif;
+  border-radius: 20px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--bg) 50%),
+                     linear-gradient(135deg, var(--bg) 50%, transparent 50%);
+  background-position: calc(100% - 22px) center, calc(100% - 17px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 40px;
+}
+
+select option {
+  font-family: 'Poppins', sans-serif;
 }
 
 .name-selector {
@@ -197,11 +219,33 @@ input[type="number"], input[type="text"] {
   color: var(--bg);
 }
 
+/* Pastillas de saldo (rediseño): mismo fondo para las 4, el color de texto
+   es lo que distingue moneda/monto (neutro) de persona deudora/acreedora. */
+.saldo-pill {
+  flex: 1;
+  background-color: var(--field-bg);
+  border-radius: 20px;
+  border: none;
+  text-align: center;
+  padding: 14px 8px;
+  font-weight: 500;
+  font-size: 18px;
+  color: var(--bg);
+}
+
+.saldo-pill.deudor {
+  color: #F70A07;
+}
+
+.saldo-pill.acreedor {
+  color: var(--accent);
+}
+
 
 .seccion-resultados {
   width: 100vw;
   margin-left: calc(-50vw + 50%);
-  background-color: #758BAF;
+  background-color: transparent;
 }
 
 .seccion-resultados-inner {
@@ -213,6 +257,7 @@ input[type="number"], input[type="text"] {
 .seccion-resultados label,
 .seccion-resultados .saldo-persona,
 .seccion-resultados .saldo-monto,
+.seccion-resultados .saldo-pill,
 .seccion-resultados .registro-linea {
   color: var(--bg);
 }
@@ -236,6 +281,29 @@ input[type="number"], input[type="text"] {
 
 .registro-linea:last-child {
   border-bottom: none;
+}
+
+/* Pestañas para filtrar "últimos registros" (propio / juntos / ajeno) */
+.tabs-registros {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--field-border);
+}
+
+.tabs-registros button {
+  flex: 1;
+  cursor: pointer;
+  background-color: var(--field-bg);
+  border: 3px solid var(--field-border);
+  color: var(--bg);
+  font-weight: 300;
+  padding: 10px 6px;
+}
+
+.tabs-registros button.selected {
+  border-color: var(--accent);
 }
 
 .category-selector {
@@ -308,7 +376,7 @@ button[type="submit"]:active {
   font-weight: 500;
 }
 
-input, textarea, .saldo-persona, .saldo-monto, .registro-linea, #quien-carga{
+input, textarea, .saldo-persona, .saldo-monto, .saldo-pill, .registro-linea, #quien-carga{
   font-weight: 300;
 }
 
