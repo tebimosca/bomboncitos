@@ -80,7 +80,7 @@
     <div class="row campo-dinamico oculto" id="wrap-monto-origen">
       <div class="form-control">
         <label for="monto-origen">monto enviado:</label>
-        <input type="number" id="monto-origen" step="0.01">
+        <input type="text" inputmode="numeric" id="monto-origen">
       </div>
       <div class="form-control">
         <label for="activo-origen">moneda / activo:</label>
@@ -93,7 +93,7 @@
     <div class="row campo-dinamico oculto" id="wrap-monto-destino">
       <div class="form-control">
         <label for="monto-destino">monto recibido:</label>
-        <input type="number" id="monto-destino" step="0.01">
+        <input type="text" inputmode="numeric" id="monto-destino">
       </div>
       <div class="form-control">
         <label for="activo-destino">moneda / activo:</label>
@@ -281,11 +281,29 @@
 
   document.getElementById('activo-origen').addEventListener('input', recalcularSincronizacion);
   document.getElementById('activo-destino').addEventListener('input', recalcularSincronizacion);
+
+  // ---------- Formateo de miles en los inputs de monto ----------
+  function desformatearMonto(valor) {
+    return valor.replace(/\./g, '');
+  }
+
+  function formatearInputMonto(input) {
+    const cursorAlFinal = input.selectionStart === input.value.length;
+    const soloNumeros = desformatearMonto(input.value).replace(/\D/g, '');
+    input.value = soloNumeros ? new Intl.NumberFormat('es-AR').format(soloNumeros) : '';
+    if (cursorAlFinal) input.setSelectionRange(input.value.length, input.value.length);
+  }
+
   document.getElementById('monto-origen').addEventListener('input', function () {
+    formatearInputMonto(this);
     const wrapMontoDestino = document.getElementById('wrap-monto-destino');
     if (wrapMontoDestino.classList.contains('oculto')) {
       document.getElementById('monto-destino').value = this.value;
     }
+  });
+
+  document.getElementById('monto-destino').addEventListener('input', function () {
+    formatearInputMonto(this);
   });
 
   // ---------- Reset en cascada ----------
@@ -352,9 +370,9 @@
       return;
     }
 
-    const montoOrigen = document.getElementById('monto-origen').value;
+    const montoOrigen = desformatearMonto(document.getElementById('monto-origen').value);
     const activoOrigen = document.getElementById('activo-origen').value.trim();
-    const montoDestino = document.getElementById('monto-destino').value;
+    const montoDestino = desformatearMonto(document.getElementById('monto-destino').value);
     const activoDestino = document.getElementById('activo-destino').value.trim();
     const descripcion = document.getElementById('descripcion').value;
     const fecha = document.getElementById('fecha').value;

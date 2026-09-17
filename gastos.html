@@ -162,7 +162,7 @@
         <label for="monto">monto:</label>
         <div class="monto-wrapper">
           <button type="button" class="btn-moneda" id="btn-moneda" onclick="toggleMoneda()">ar$</button>
-          <input type="number" id="monto" step="0.01" required>
+          <input type="text" inputmode="numeric" id="monto" required>
         </div>
       </div>
 
@@ -199,7 +199,14 @@
     <div id="saldos-container"></div>
 
     <label>últimos registros</label>
-    <div id="ultimos-registros" class="registros-caja"></div>
+    <div class="registros-caja">
+      <div class="tabs-registros" id="tabs-registros">
+        <button type="button" class="selected" onclick="selectTabRegistros(this, 'compartido')">juntos</button>
+        <button type="button" onclick="selectTabRegistros(this, 'tebi')">tebi</button>
+        <button type="button" onclick="selectTabRegistros(this, 'anita')">anita</button>
+      </div>
+      <div id="ultimos-registros"></div>
+    </div>
   </div>
 </div>
 
@@ -268,6 +275,18 @@
     moneda = moneda === 'ARS' ? 'USD' : 'ARS';
     document.getElementById('btn-moneda').textContent = moneda === 'ARS' ? 'ar$' : 'u$d';
   }
+
+  // ---------- Formateo de miles en el input de monto ----------
+  function desformatearMonto(valor) {
+    return valor.replace(/\./g, '');
+  }
+
+  document.getElementById('monto').addEventListener('input', function (e) {
+    const cursorAlFinal = this.selectionStart === this.value.length;
+    const soloNumeros = desformatearMonto(this.value).replace(/\D/g, '');
+    this.value = soloNumeros ? new Intl.NumberFormat('es-AR').format(soloNumeros) : '';
+    if (cursorAlFinal) this.setSelectionRange(this.value.length, this.value.length);
+  });
 
   // ---------- Carga de instrumentos (medio de pago) ----------
   async function cargarInstrumentosPago() {
@@ -420,6 +439,45 @@
     }
   }
 
+  // ---------- Pestañas de "últimos registros" ----------
+  let todosLosRegistros = [];
+  let tabActual = 'compartido';
+
+  function determinarTab(personaMov, tipoGastoMov) {
+    if (tipoGastoMov === 'compartido' || tipoGastoMov === 'transferencia') return 'compartido';
+    if (tipoGastoMov === 'personal') return personaMov.toLowerCase();
+    if (tipoGastoMov === 'ajeno') return personaMov === 'Tebi' ? 'anita' : 'tebi';
+    return 'compartido';
+  }
+
+  function selectTabRegistros(btn, tab) {
+    document.querySelectorAll('#tabs-registros button').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    tabActual = tab;
+    renderUltimosRegistros();
+  }
+
+  function renderUltimosRegistros() {
+    const contenedorRegistros = document.getElementById('ultimos-registros');
+    contenedorRegistros.innerHTML = '';
+
+    todosLosRegistros
+      .filter(m => m.tabPertenece === tabActual)
+      .slice(0, NUM_ULTIMOS_REGISTROS)
+      .forEach(m => {
+        const linea = document.createElement('div');
+        linea.className = 'registro-linea';
+        const inicial = m.persona.charAt(0).toUpperCase();
+        const monedaTexto = m.moneda === 'USD' ? 'usd' : 'ars';
+        const montoTexto = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(m.monto);
+        const categoriaTexto = m.tipo_gasto === 'transferencia'
+          ? 'transferencia'
+          : (m.categorias ? m.categorias.nombre : '');
+        linea.textContent = `${inicial}  ${formatearFecha(m.fecha)} — ${monedaTexto} $${montoTexto} — ${truncar(m.descripcion, 22)} (${categoriaTexto})`;
+        contenedorRegistros.appendChild(linea);
+      });
+  }
+
   // ---------- Resumen (saldos + últimos registros) ----------
   async function cargarResumen() {
     const { data, error } = await supabaseClient
@@ -446,13 +504,15 @@
       if (Math.abs(dif) < 0.01) return;
 
       const tebiEsDeudor = dif < 0;
+      const monEtiqueta = mon === 'USD' ? 'usd' : 'ars';
 
       const fila = document.createElement('div');
       fila.className = 'saldos-row';
       fila.innerHTML = `
-        <div class="saldo-persona ${tebiEsDeudor ? 'deudor' : 'acreedor'}">tebi</div>
-        <div class="saldo-monto">${formatearMonto(Math.abs(dif), mon)}</div>
-        <div class="saldo-persona ${tebiEsDeudor ? 'acreedor' : 'deudor'}">anita</div>
+        <div class="saldo-pill">${monEtiqueta}</div>
+        <div class="saldo-pill">${formatearMonto(Math.abs(dif), mon)}</div>
+        <div class="saldo-pill ${tebiEsDeudor ? 'deudor' : 'acreedor'}">tebi</div>
+        <div class="saldo-pill ${tebiEsDeudor ? 'acreedor' : 'deudor'}">anita</div>
       `;
       contenedorSaldos.appendChild(fila);
     });
@@ -462,27 +522,19 @@
       .select('*, categorias(nombre)')
       .not('tipo_gasto', 'is', null)
       .order('creado_en', { ascending: false })
-      .limit(NUM_ULTIMOS_REGISTROS);
+      .limit(60);
 
     if (errorUltimos) {
       console.error(errorUltimos);
       return;
     }
 
-    const contenedorRegistros = document.getElementById('ultimos-registros');
-    contenedorRegistros.innerHTML = '';
+    todosLosRegistros = ultimos.map(m => ({
+      ...m,
+      tabPertenece: determinarTab(m.persona, m.tipo_gasto)
+    }));
 
-    ultimos.forEach(m => {
-      const linea = document.createElement('div');
-      linea.className = 'registro-linea';
-      if (m.tipo_gasto === 'transferencia') {
-        linea.textContent = `${formatearFecha(m.fecha)} ${formatearMonto(m.monto, m.moneda)} ${m.persona.toLowerCase()} → transferencia ${truncar(m.descripcion, 20)}`;
-      } else {
-        const cat = m.categorias ? m.categorias.nombre : '';
-        linea.textContent = `${formatearFecha(m.fecha)} ${formatearMonto(m.monto, m.moneda)} ${m.persona.toLowerCase()} ${cat} ${truncar(m.descripcion, 18)}`;
-      }
-      contenedorRegistros.appendChild(linea);
-    });
+    renderUltimosRegistros();
   }
 
   // ---------- Envío del formulario ----------
@@ -513,7 +565,7 @@
       }
     }
 
-    const monto = document.getElementById('monto').value;
+    const monto = desformatearMonto(document.getElementById('monto').value);
     const descripcion = document.getElementById('descripcion').value;
     const fecha = document.getElementById('fecha').value;
 
@@ -539,6 +591,9 @@
       return;
     }
 
+    // Antes de resetear el formulario, guardamos a qué pestaña pertenece este gasto
+    const tabDelGastoCargado = determinarTab(realizador, tipoGasto);
+
     // Reset del formulario
     document.getElementById('form-gasto').reset();
     document.querySelectorAll('.name-selector button, .tipo-gasto-selector button').forEach(i => i.classList.remove('selected'));
@@ -555,6 +610,11 @@
 
     document.getElementById('confirmacion').style.display = 'block';
     setTimeout(() => document.getElementById('confirmacion').style.display = 'none', 2000);
+
+    tabActual = tabDelGastoCargado;
+    document.querySelectorAll('#tabs-registros button').forEach(b => {
+      b.classList.toggle('selected', b.getAttribute('onclick').includes(`'${tabDelGastoCargado}'`));
+    });
 
     cargarResumen();
   });

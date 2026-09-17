@@ -69,7 +69,7 @@
         <label for="monto">monto:</label>
         <div class="monto-wrapper">
           <button type="button" class="btn-moneda" id="btn-moneda" onclick="toggleMoneda()">ar$</button>
-          <input type="number" id="monto" step="0.01" required>
+          <input type="text" inputmode="numeric" id="monto" required>
         </div>
       </div>
 
@@ -127,6 +127,18 @@
     moneda = moneda === 'ARS' ? 'USD' : 'ARS';
     document.getElementById('btn-moneda').textContent = moneda === 'ARS' ? 'ar$' : 'u$d';
   }
+
+  // ---------- Formateo de miles en el input de monto ----------
+  function desformatearMonto(valor) {
+    return valor.replace(/\./g, '');
+  }
+
+  document.getElementById('monto').addEventListener('input', function () {
+    const cursorAlFinal = this.selectionStart === this.value.length;
+    const soloNumeros = desformatearMonto(this.value).replace(/\D/g, '');
+    this.value = soloNumeros ? new Intl.NumberFormat('es-AR').format(soloNumeros) : '';
+    if (cursorAlFinal) this.setSelectionRange(this.value.length, this.value.length);
+  });
 
   // ---------- Carga de cuentas (según persona) ----------
   async function cargarCuentas() {
@@ -222,7 +234,7 @@
 
     const cuentaId = document.getElementById('cuenta').value;
     const categoriaId = document.getElementById('categoria').value;
-    const monto = document.getElementById('monto').value;
+    const monto = desformatearMonto(document.getElementById('monto').value);
     const descripcion = document.getElementById('descripcion').value;
     const fecha = document.getElementById('fecha').value;
 
