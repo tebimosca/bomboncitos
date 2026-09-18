@@ -115,6 +115,7 @@ select {
 
 select option {
   font-family: 'Poppins', sans-serif;
+  font-weight: 300;
 }
 
 .name-selector {
@@ -180,10 +181,20 @@ select option {
   margin-bottom: 24px;
 }
 
+.saldos-caja {
+  background-color: var(--field-border);
+  border-radius: 30px;
+  padding: 16px 14px;
+}
+
 .saldos-row {
   display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.saldos-row:last-child {
+  margin-bottom: 0;
 }
 
 .saldo-persona {
@@ -220,17 +231,29 @@ select option {
 }
 
 /* Pastillas de saldo (rediseño): mismo fondo para las 4, el color de texto
-   es lo que distingue moneda/monto (neutro) de persona deudora/acreedora. */
+   es lo que distingue moneda/monto (neutro) de persona deudora/acreedora.
+   Columna de monto más ancha (hasta 7 dígitos), el resto más angostas. */
 .saldo-pill {
-  flex: 1;
   background-color: var(--field-bg);
-  border-radius: 20px;
+  border-radius: 16px;
   border: none;
   text-align: center;
-  padding: 14px 8px;
+  padding: 8px 6px;
   font-weight: 500;
-  font-size: 18px;
+  font-size: 16px;
   color: var(--bg);
+}
+
+.saldo-pill-moneda {
+  flex: 0.7;
+}
+
+.saldo-pill-monto {
+  flex: 1.6;
+}
+
+.saldo-pill-persona {
+  flex: 0.9;
 }
 
 .saldo-pill.deudor {
@@ -254,12 +277,15 @@ select option {
   padding: 24px 20px;
 }
 
-.seccion-resultados label,
 .seccion-resultados .saldo-persona,
 .seccion-resultados .saldo-monto,
 .seccion-resultados .saldo-pill,
 .seccion-resultados .registro-linea {
   color: var(--bg);
+}
+
+.seccion-resultados label {
+  color: var(--accent);
 }
 
 .registros-caja {
@@ -376,7 +402,7 @@ button[type="submit"]:active {
   font-weight: 500;
 }
 
-input, textarea, .saldo-persona, .saldo-monto, .saldo-pill, .registro-linea, #quien-carga{
+input, textarea, select, .saldo-persona, .saldo-monto, .saldo-pill, .registro-linea, #quien-carga{
   font-weight: 300;
 }
 
