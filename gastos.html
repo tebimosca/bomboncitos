@@ -473,7 +473,7 @@
           : (m.categorias ? m.categorias.nombre : '');
         linea.innerHTML = `
           <span class="reg-inicial">${inicial}</span>
-          <span class="reg-fecha">${formatearFecha(m.fecha)} —</span>
+          <span class="reg-fecha">${formatearFecha(m.fecha)}</span>
           <span class="reg-monto-etiqueta">${monedaTexto}</span>
           <span class="reg-resto">$${montoTexto} — ${truncar(m.descripcion, 22)} (${categoriaTexto})</span>
         `;
