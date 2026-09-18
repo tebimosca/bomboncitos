@@ -471,7 +471,12 @@
         const categoriaTexto = m.tipo_gasto === 'transferencia'
           ? 'transferencia'
           : (m.categorias ? m.categorias.nombre : '');
-        linea.textContent = `${inicial}  ${formatearFecha(m.fecha)} — ${monedaTexto} $${montoTexto} — ${truncar(m.descripcion, 22)} (${categoriaTexto})`;
+        linea.innerHTML = `
+          <span class="reg-inicial">${inicial}</span>
+          <span class="reg-fecha">${formatearFecha(m.fecha)} —</span>
+          <span class="reg-monto-etiqueta">${monedaTexto}</span>
+          <span class="reg-resto">$${montoTexto} — ${truncar(m.descripcion, 22)} (${categoriaTexto})</span>
+        `;
         contenedorRegistros.appendChild(linea);
       });
   }
@@ -502,7 +507,7 @@
       if (Math.abs(dif) < 0.01) return;
 
       const monEtiqueta = mon === 'USD' ? 'usd' : 'ars';
-      const montoTexto = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(Math.abs(dif));
+      const montoTexto = '$' + new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(Math.abs(dif));
 
       // dif > 0 significa que a tebi le deben; dif < 0 significa que tebi debe.
       const nombreDeudor = dif < 0 ? 'tebi' : 'anita';
