@@ -279,7 +279,6 @@ select option {
 
 .seccion-resultados .saldo-persona,
 .seccion-resultados .saldo-monto,
-.seccion-resultados .saldo-pill,
 .seccion-resultados .registro-linea {
   color: var(--bg);
 }
@@ -296,17 +295,37 @@ select option {
 }
 
 .registro-linea {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
   padding: 4px 0;
   border-bottom: 2px solid var(--field-border);
   color: var(--bg);
   font-size: 15px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .registro-linea:last-child {
   border-bottom: none;
+}
+
+.reg-inicial {
+  flex: 0 0 14px;
+}
+
+.reg-fecha {
+  flex: 0 0 54px;
+}
+
+.reg-monto-etiqueta {
+  flex: 0 0 28px;
+}
+
+.reg-resto {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Pestañas para filtrar "últimos registros" (propio / juntos / ajeno) */
