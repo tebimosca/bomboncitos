@@ -299,25 +299,23 @@ select option {
   align-items: baseline;
   gap: 4px;
   padding: 4px 0;
-  border-bottom: 2px solid var(--field-border);
   color: var(--bg);
   font-size: 15px;
 }
 
-.registro-linea:last-child {
-  border-bottom: none;
-}
-
 .reg-inicial {
   flex: 0 0 14px;
+  white-space: nowrap;
 }
 
 .reg-fecha {
-  flex: 0 0 54px;
+  flex: 0 0 42px;
+  white-space: nowrap;
 }
 
 .reg-monto-etiqueta {
   flex: 0 0 28px;
+  white-space: nowrap;
 }
 
 .reg-resto {
