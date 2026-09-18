@@ -191,12 +191,12 @@
 
   <p id="confirmacion" style="display:none; text-align:center;">¡Gasto cargado!</p>
 
-<a class="franja"></a>
-
 <div class="seccion-resultados">
   <div class="seccion-resultados-inner">
     <label>saldos</label>
-    <div id="saldos-container"></div>
+    <div class="saldos-caja">
+      <div id="saldos-container"></div>
+    </div>
 
     <label>últimos registros</label>
     <div class="registros-caja">
@@ -209,8 +209,6 @@
     </div>
   </div>
 </div>
-
-<a class="franja-fin"></a>
 
 <footer style="text-align:center; margin-top:40px; opacity:0.7; font-size:14px;">
   <p id="quien-carga"></p>
@@ -503,16 +501,20 @@
       const dif = totalesPorMoneda[mon];
       if (Math.abs(dif) < 0.01) return;
 
-      const tebiEsDeudor = dif < 0;
       const monEtiqueta = mon === 'USD' ? 'usd' : 'ars';
+      const montoTexto = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(Math.abs(dif));
+
+      // dif > 0 significa que a tebi le deben; dif < 0 significa que tebi debe.
+      const nombreDeudor = dif < 0 ? 'tebi' : 'anita';
+      const nombreAcreedor = dif < 0 ? 'anita' : 'tebi';
 
       const fila = document.createElement('div');
       fila.className = 'saldos-row';
       fila.innerHTML = `
-        <div class="saldo-pill">${monEtiqueta}</div>
-        <div class="saldo-pill">${formatearMonto(Math.abs(dif), mon)}</div>
-        <div class="saldo-pill ${tebiEsDeudor ? 'deudor' : 'acreedor'}">tebi</div>
-        <div class="saldo-pill ${tebiEsDeudor ? 'acreedor' : 'deudor'}">anita</div>
+        <div class="saldo-pill saldo-pill-moneda">${monEtiqueta}</div>
+        <div class="saldo-pill saldo-pill-monto">${montoTexto}</div>
+        <div class="saldo-pill saldo-pill-persona deudor">${nombreDeudor}</div>
+        <div class="saldo-pill saldo-pill-persona acreedor">${nombreAcreedor}</div>
       `;
       contenedorSaldos.appendChild(fila);
     });
