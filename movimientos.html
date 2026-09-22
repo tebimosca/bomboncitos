@@ -278,15 +278,18 @@
   document.getElementById('activo-origen').addEventListener('input', recalcularSincronizacion);
   document.getElementById('activo-destino').addEventListener('input', recalcularSincronizacion);
 
-  // ---------- Formateo de miles en los inputs de monto ----------
+  // ---------- Formateo de miles en los inputs de monto (permite decimales con coma) ----------
   function desformatearMonto(valor) {
-    return valor.replace(/\./g, '');
+    return valor.replace(/\./g, '').replace(',', '.');
   }
 
   function formatearInputMonto(input) {
     const cursorAlFinal = input.selectionStart === input.value.length;
-    const soloNumeros = desformatearMonto(input.value).replace(/\D/g, '');
-    input.value = soloNumeros ? new Intl.NumberFormat('es-AR').format(soloNumeros) : '';
+    const limpio = input.value.replace(/[^\d,]/g, '');
+    const [entero, ...restoDecimales] = limpio.split(',');
+    const decimales = restoDecimales.length ? restoDecimales.join('').slice(0, 2) : null;
+    const enteroFormateado = entero ? new Intl.NumberFormat('es-AR').format(parseInt(entero, 10)) : '';
+    input.value = decimales !== null ? `${enteroFormateado},${decimales}` : enteroFormateado;
     if (cursorAlFinal) input.setSelectionRange(input.value.length, input.value.length);
   }
 

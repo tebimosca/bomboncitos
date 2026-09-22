@@ -124,15 +124,18 @@
     document.getElementById('btn-moneda').textContent = moneda === 'ARS' ? 'ar$' : 'u$d';
   }
 
-  // ---------- Formateo de miles en el input de monto ----------
+  // ---------- Formateo de miles en el input de monto (permite decimales con coma) ----------
   function desformatearMonto(valor) {
-    return valor.replace(/\./g, '');
+    return valor.replace(/\./g, '').replace(',', '.');
   }
 
   document.getElementById('monto').addEventListener('input', function () {
     const cursorAlFinal = this.selectionStart === this.value.length;
-    const soloNumeros = desformatearMonto(this.value).replace(/\D/g, '');
-    this.value = soloNumeros ? new Intl.NumberFormat('es-AR').format(soloNumeros) : '';
+    const limpio = this.value.replace(/[^\d,]/g, '');
+    const [entero, ...restoDecimales] = limpio.split(',');
+    const decimales = restoDecimales.length ? restoDecimales.join('').slice(0, 2) : null;
+    const enteroFormateado = entero ? new Intl.NumberFormat('es-AR').format(parseInt(entero, 10)) : '';
+    this.value = decimales !== null ? `${enteroFormateado},${decimales}` : enteroFormateado;
     if (cursorAlFinal) this.setSelectionRange(this.value.length, this.value.length);
   });
 
