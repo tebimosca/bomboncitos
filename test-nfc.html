@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Test NFC</title>
+<title>Test NFC · Doble toque</title>
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f4f6f1;--card:#fff;--tx:#1d2a1f;--mu:#6b7a6d;--ac:#2e7d32;--bd:#dfe5da;--bad:#c62828}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111a13;--card:#1b271d;--tx:#e8efe8;--mu:#93a495;--ac:#66bb6a;--bd:#2b3b2d;--bad:#ef9a9a}}
@@ -11,89 +11,112 @@ button{width:100%;font-size:18px;padding:16px;border-radius:12px;border:1px soli
 button.on{background:var(--ac);color:#fff}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:14px}
 .mu{color:var(--mu);font-size:13px}
-#log{font-family:monospace;font-size:12px;white-space:pre-wrap;max-height:40vh;overflow:auto;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:8px}
-.big{font-size:22px;font-weight:800;text-align:center;padding:14px;border-radius:12px;background:var(--bg);margin-bottom:10px}
+#log{font-family:monospace;font-size:12px;white-space:pre-wrap;max-height:35vh;overflow:auto;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:8px}
+.big{font-size:20px;font-weight:800;text-align:center;padding:16px;border-radius:12px;background:var(--bg);margin-bottom:10px}
+.tags{font-size:13px}
+.tags div{padding:4px 0;border-bottom:1px solid var(--bd)}
 </style></head><body>
-<h2>🧪 Test lectura NFC</h2>
-<div class="card">
-<div class="mu">Esta página SOLO sirve para probar cómo se comporta el NFC de tu celular: si detecta el tag una vez por acercamiento, o de forma repetida mientras está pegado (necesario para simular toque largo = deshacer/penalidad-2).</div>
-</div>
+<h2>🧪 Test: toque simple vs doble</h2>
+<div class="card mu">Acercá el tag y alejalo. Si dentro de los próximos <span id="wv">1800</span>ms volvés a acercarlo, cuenta como <b>doble toque</b>. Si no, queda como <b>simple</b>.</div>
 <button id="btn" class="on">▶️ Activar lectura NFC</button>
 <div class="big" id="status">Esperando...</div>
 <div class="card">
-<div class="mu">Umbral de "toque largo" (ms):</div>
-<input type="range" id="thr" min="500" max="3000" step="100" value="1500" style="width:100%">
-<div class="mu" id="thrv">1500 ms</div>
+<div class="mu">Ventana para doble toque (ms):</div>
+<input type="range" id="win" min="800" max="3000" step="100" value="1800" style="width:100%">
 </div>
 <div class="card">
-<div class="mu" style="margin-bottom:6px">Registro de eventos crudos (para analizar el patrón):</div>
+<div class="mu" style="margin-bottom:6px">Tags reconocidos en esta sesión:</div>
+<div class="tags" id="tags"></div>
+</div>
+<div class="card">
+<div class="mu" style="margin-bottom:6px">Log</div>
 <div id="log"></div>
 <button onclick="document.getElementById('log').textContent=''" style="margin-top:8px">Limpiar log</button>
 </div>
 <script>
-const log=document.getElementById('log'),status=document.getElementById('status'),thr=document.getElementById('thr'),thrv=document.getElementById('thrv');
-thr.oninput=()=>thrv.textContent=thr.value+' ms';
-let lastSerial=null,firstTs=0,lastTs=0,fired=false,timer=null;
+const log=document.getElementById('log'),status=document.getElementById('status'),win=document.getElementById('win'),wv=document.getElementById('wv'),tagsEl=document.getElementById('tags');
+win.oninput=()=>wv.textContent=win.value;
 function L(t){const d=new Date().toLocaleTimeString();log.textContent=`[${d}] ${t}\n`+log.textContent}
 function beep(kind){
   try{
     const ctx=new (window.AudioContext||window.webkitAudioContext)();
     const o=ctx.createOscillator(),g=ctx.createGain();
     o.connect(g);g.connect(ctx.destination);
-    o.frequency.value=kind==='long'?220:880;
     g.gain.value=0.2;
-    o.start();o.stop(ctx.currentTime+(kind==='long'?0.4:0.12));
+    if(kind==='double'){o.frequency.value=440;o.start();setTimeout(()=>{o.frequency.value=440},120);o.stop(ctx.currentTime+0.35)}
+    else{o.frequency.value=880;o.start();o.stop(ctx.currentTime+0.1)}
   }catch(e){}
 }
-function evalHold(){
-  const held=lastTs-firstTs;
-  if(held>=parseInt(thr.value)&&!fired){
-    fired=true;
-    status.textContent='🔴 TOQUE LARGO detectado';
-    beep('long');
-    L(`>>> LARGO disparado a los ${held}ms de contacto continuo`);
-  }
+// per-tag state: last burst timestamp, pending timer
+const state={};
+const names={}; // serial -> label asignado en esta sesión
+
+function labelFor(serial){
+  return names[serial]||serial;
 }
+function renderTags(){
+  tagsEl.innerHTML=Object.keys(state).map(s=>{
+    const n=names[s]||'(sin nombre)';
+    return `<div>${s} → <b>${n}</b> <button style="width:auto;display:inline;padding:4px 8px;margin:0" onclick="rename('${s}')">renombrar</button></div>`;
+  }).join('')||'<div class="mu">Todavía no leíste ningún tag</div>';
+}
+window.rename=(s)=>{const n=prompt('Nombre para este palo/tag:',names[s]||'');if(n){names[s]=n;renderTags()}};
+
+function handleBurst(serial){
+  const now=Date.now();
+  if(!state[serial])state[serial]={last:0,timer:null,count:0};
+  const st=state[serial];
+  const gap=now-st.last;
+  const W=parseInt(win.value);
+  if(st.last && gap<=W){
+    // doble toque
+    clearTimeout(st.timer);
+    st.count=0;st.last=0;
+    status.textContent='⚡ DOBLE TOQUE: '+labelFor(serial);
+    beep('double');
+    L(`DOBLE TOQUE confirmado (${serial}), gap=${gap}ms`);
+  }else{
+    st.last=now;
+    clearTimeout(st.timer);
+    status.textContent='🟢 Toque: '+labelFor(serial)+' (esperando posible 2do...)';
+    beep('single');
+    L(`Ráfaga detectada (${serial}). Si no hay otro toque en ${W}ms, será SIMPLE.`);
+    st.timer=setTimeout(()=>{
+      status.textContent='✅ TOQUE SIMPLE: '+labelFor(serial);
+      L(`Confirmado SIMPLE (${serial})`);
+      st.last=0;
+    },W);
+  }
+  if(!(serial in names))renderTags();
+}
+
+let lastBurstAt=0,lastBurstSerial=null;
 async function start(){
   if(!('NDEFReader' in window)){
-    status.textContent='❌ Este navegador no soporta Web NFC';
-    L('NDEFReader no existe. Probá con Chrome para Android, sobre HTTPS.');
+    status.textContent='❌ Este navegador no soporta Web NFC (usá Chrome Android)';
     return;
   }
   try{
     const reader=new NDEFReader();
     await reader.scan();
     status.textContent='✅ Escaneando, acercá un tag';
-    L('Scan iniciado correctamente.');
+    L('Scan iniciado.');
     reader.onreading=ev=>{
       const serial=ev.serialNumber||'(sin serial)';
       const now=Date.now();
-      L(`evento: serial=${serial} Δdesde_ultimo=${lastSerial===serial?(now-lastTs)+'ms':'—'}`);
-      if(serial!==lastSerial||(now-lastTs)>2500){
-        // nuevo contacto
-        lastSerial=serial;firstTs=now;lastTs=now;fired=false;
-        status.textContent='🟢 Tag detectado: '+serial;
-        beep('short');
-        L(`--- NUEVO contacto: ${serial}`);
-        clearTimeout(timer);
-      }else{
-        // mismo tag, evento repetido -> posible "mantenido"
-        lastTs=now;
-        evalHold();
-        clearTimeout(timer);
-      }
-      clearTimeout(timer);
-      timer=setTimeout(()=>{
-        if(!fired)status.textContent='⚪ Contacto perdido (toque corto, '+(lastTs-firstTs)+'ms)';
-        L(`fin de contacto, duración total=${lastTs-firstTs}ms, eventos repetidos=${lastTs!==firstTs}`);
-      },2600);
+      // colapsar la ráfaga de eventos casi simultáneos de un mismo acercamiento en uno solo
+      if(serial===lastBurstSerial && (now-lastBurstAt)<400)return;
+      lastBurstSerial=serial;lastBurstAt=now;
+      if(!(serial in state))renderTags();
+      handleBurst(serial);
     };
-    reader.onreadingerror=()=>L('Error de lectura (tag ilegible o interferencia)');
+    reader.onreadingerror=()=>L('Error de lectura de tag');
   }catch(e){
     status.textContent='❌ Error: '+e.message;
-    L('Excepción: '+e.message+' (revisá permisos NFC del sitio / que el NFC esté activado)');
+    L('Excepción: '+e.message);
   }
 }
 document.getElementById('btn').onclick=start;
+renderTags();
 </script>
 </body></html>
